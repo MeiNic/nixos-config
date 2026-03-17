@@ -41,12 +41,17 @@ in
       python3Packages.pip
       cargo
       rustc
+      rustup
+      rustfmt
       dart
       flutter
       android-studio
       jetbrains.goland
       jetbrains.idea
       jetbrains.webstorm
+      jetbrains.rust-rover
+      docker
+      docker-compose
 
       # ── Security & Crypto ───────────────────────────────────────────────
       gnupg
@@ -61,6 +66,8 @@ in
       vlc
       handbrake
       gwenviewPkg
+      joplin-desktop     # Note-App
+      joplin-cli
 
       # ── Network & VPN ───────────────────────────────────────────────────
       openconnect
