@@ -113,9 +113,6 @@ in
 [push]
   autoSetupRemote = true
 
-[credential]
-  helper = /run/current-system/sw/bin/git-credential-libsecret
-
 # ── SSH commit signing ──────────────────────────────────────────────────────
 [user]
   signingkey = ~/.ssh/git_signing_key
