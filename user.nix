@@ -14,7 +14,7 @@ in
   users.users.nico = {
     isNormalUser = true;
     description  = "nico";
-    shell        = pkgs.zsh;
+    shell        = pkgs.fish;
     extraGroups  = [ "networkmanager" "wheel" "wireshark" "adbusers" "docker" ];
 
     packages = builtins.filter (x: x != null) (with pkgs; [
@@ -95,6 +95,7 @@ in
       teams-for-linux    # Unofficial Microsoft Teams client
 
       # ── Zsh plugins (make available to user shell) ───────────────────────
+      fish
       zsh-autosuggestions
       zsh-syntax-highlighting
     ]);
@@ -102,6 +103,7 @@ in
 
   # Zsh must be enabled system-wide so it is a valid login shell.
   programs.zsh.enable = true;
+  programs.fish.enable = true;
 
   # Android Debug Bridge
   programs.adb.enable = true;

@@ -27,8 +27,27 @@ in
     "cachyos.conf" = ''
       title    CachyOS
       linux    /${luksUuids.efiToken}/linux-cachyos/vmlinuz-linux-cachyos
-      initrd   /${luksUuids.efiToken}/linux-cachyos/initramsfs-linux-cachyos.img
-      options  luks.uuid=${luksUuids.cachyosLuksUuid} luks.name=root root=/dev/mapper/root rw quiet splash
+      initrd   /intel-ucode.img
+      initrd   /${luksUuids.efiToken}/linux-cachyos/initramfs-linux-cachyos
+      options  rd.luks.uuid=${luksUuids.cachyosLuksUuid} root=/dev/mapper/luks-${luksUuids.cachyosLuksUuid} rootflags=subvol=/@ rw quiet nowatchdog splash
+    '';
+    # Alternative entry using cryptdevice (Arch-style mkinitcpio) as a backup
+    # if dracut parameters fail.
+    "cachyos-cryptdevice.conf" = ''
+      title    CachyOS (mkinitcpio style)
+      linux    /${luksUuids.efiToken}/linux-cachyos/vmlinuz-linux-cachyos
+      initrd   /intel-ucode.img
+      initrd   /${luksUuids.efiToken}/linux-cachyos/initramfs-linux-cachyos
+      options  cryptdevice=UUID=${luksUuids.cachyosLuksUuid}:luks-${luksUuids.cachyosLuksUuid} root=/dev/mapper/luks-${luksUuids.cachyosLuksUuid} rootflags=subvol=/@ rw quiet splash
+    '';
+
+    # Chainload the other partition's EFI loader. Useful when the
+    # Cachy partition maintains its own bootloader (you mentioned it does).
+    # This points to the standard fallback EFI path - adjust if your
+    # Cachy EFI file lives elsewhere under the token directory.
+    "cachyos-chain.conf" = ''
+      title    CachyOS (chainload)
+      efi      /${luksUuids.efiToken}/EFI/BOOT/BOOTX64.EFI
     '';
   };
 

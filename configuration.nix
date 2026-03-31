@@ -91,6 +91,11 @@
 
   # ── Virtualisation ─────────────────────────────────────────────────────────
   virtualisation.docker.enable = true;
+  virtualisation.docker.autoPrune.enable = true;
+  virtualisation.docker.daemon.settings = {
+    storage-driver = "btrfs";
+    data-root = "/var/lib/docker/@docker";
+  };
 
   # ── Flatpak ────────────────────────────────────────────────────────────────
   services.flatpak.enable = true;
