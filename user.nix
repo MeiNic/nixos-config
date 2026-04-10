@@ -14,7 +14,7 @@ in
   users.users.nico = {
     isNormalUser = true;
     description  = "nico";
-    shell        = pkgs.fish;
+    shell        = pkgs.zsh;
     extraGroups  = [ "networkmanager" "wheel" "wireshark" "adbusers" "docker" ];
 
     packages = builtins.filter (x: x != null) (with pkgs; [
@@ -50,8 +50,6 @@ in
       jetbrains.idea
       jetbrains.webstorm
       jetbrains.rust-rover
-      docker
-      docker-compose
 
       # ── Security & Crypto ───────────────────────────────────────────────
       gnupg
@@ -88,6 +86,7 @@ in
       open-webui
 
       # ── Misc ────────────────────────────────────────────────────────────
+      discord
       ausweisapp
       solaar             # Logitech device manager
       proton-pass
@@ -95,7 +94,6 @@ in
       teams-for-linux    # Unofficial Microsoft Teams client
 
       # ── Zsh plugins (make available to user shell) ───────────────────────
-      fish
       zsh-autosuggestions
       zsh-syntax-highlighting
     ]);
@@ -103,11 +101,12 @@ in
 
   # Zsh must be enabled system-wide so it is a valid login shell.
   programs.zsh.enable = true;
-  programs.fish.enable = true;
 
   # Android Debug Bridge
   programs.adb.enable = true;
 
   # Wireshark with setcap so non-root users in the wireshark group can capture
   programs.wireshark.enable = true;
+  
+  virtualisation.docker.enable = true;
 }
