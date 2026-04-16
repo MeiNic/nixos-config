@@ -113,6 +113,9 @@ in
 [push]
   autoSetupRemote = true
 
+[credential]
+  helper = store
+
 # ── SSH commit signing ──────────────────────────────────────────────────────
 [user]
   signingkey = ~/.ssh/git_signing_key
