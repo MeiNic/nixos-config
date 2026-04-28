@@ -36,23 +36,65 @@
 { config, pkgs, lib, ... }:
 
 let
-  user     = "nico";
-  homeDir  = "/home/${user}";
-  sshDir   = "${homeDir}/.ssh";
-  keySrc   = homeDir;   # current location of the migrated key files
-
   # ── Personal identifiers loaded from a gitignored secrets file ────────────
-  # Copy secrets/personal.nix.template → secrets/personal.nix and fill in
-  # your real values. The file is excluded via .gitignore (secrets/ dir).
   personal = import ./secrets/personal.nix;
 
-  gitEmail         = personal.gitEmail;          # e.g. "you@example.com"
-  gitName          = personal.gitName;           # e.g. "YourGitHubUsername"
-  gitSigningPubKey = personal.gitSigningPubKey;  # ssh-ed25519 AAAA…
+  gitEmail         = personal.gitEmail;
+  gitName          = personal.gitName;
+  gitSigningPubKey = personal.gitSigningPubKey;
 in
 {
   # ── Git ────────────────────────────────────────────────────────────────────
-  programs.git.enable = true;
+  programs.git = {
+    enable = true;
+    config = {
+      user = {
+        name  = gitName;
+        email = gitEmail;
+        signingkey = "~/.ssh/git_signing_key";
+      };
+      core = {
+        autocrlf = "input";
+        eol      = "lf";
+        editor   = "vim";
+      };
+      init.defaultBranch = "main";
+      pull.rebase = true;
+      push.autoSetupRemote = true;
+      credential.helper = "store";
+      gpg = {
+        format = "ssh";
+        ssh.allowedSignersFile = "/etc/ssh/allowed_signers";
+      };
+      commit.gpgsign = true;
+      tag.gpgsign = true;
+      alias = {
+        st = "status";
+        co = "checkout";
+        br = "branch";
+        lg = "log --oneline --graph --decorate --all";
+        ci = "commit";
+      };
+    };
+  };
+
+  # ── SSH & Signers ──────────────────────────────────────────────────────────
+  programs.ssh.extraConfig = ''
+    # GitHub – authentication (push/pull)
+    Host github.com
+      User            git
+      IdentityFile    ~/.ssh/gh_action_key
+      AddKeysToAgent  yes
+
+    # Global defaults
+    Host *
+      ServerAliveInterval 60
+      ServerAliveCountMax 3
+  '';
+
+  environment.etc."ssh/allowed_signers".text = ''
+    ${gitEmail} ${gitSigningPubKey}
+  '';
 
   # ── GPG agent (handles OpenPGP for Thunderbird) ────────────────────────────
   programs.gnupg.agent = {
@@ -67,118 +109,5 @@ in
       PasswordAuthentication = false;
       PermitRootLogin        = "no";
     };
-  };
-
-  # ── Activation: deploy ~/.gitconfig and ~/.ssh/ on every rebuild ───────────
-  system.activationScripts.gitAndSshSetup = {
-    deps = [ "specialfs" ];
-    text = ''
-      set -euo pipefail
-      HOME_DIR="${homeDir}"
-      SSH_DIR="${sshDir}"
-      KEY_SRC="${keySrc}"
-
-      # ── ~/.ssh directory ─────────────────────────────────────────────────
-      mkdir -p "$SSH_DIR"
-      chmod 700 "$SSH_DIR"
-      chown ${user}:users "$SSH_DIR"
-
-      # ── allowed_signers file (re-written on every rebuild) ───────────────
-      # Git uses this to verify commit signatures made with the SSH signing key.
-      SIGNERS="$SSH_DIR/allowed_signers"
-      echo "[git-ssh] Writing $SIGNERS"
-      printf '%s %s\n' "${gitEmail}" "${gitSigningPubKey}" > "$SIGNERS"
-      chown ${user}:users "$SIGNERS"
-      chmod 644 "$SIGNERS"
-
-      # ── .gitconfig (re-written on every rebuild) ─────────────────────────
-      GIT_CFG="$HOME_DIR/.gitconfig"
-      echo "[git-ssh] Writing $GIT_CFG"
-      cat > "$GIT_CFG" << GCFG
-[user]
-  name  = ${gitName}
-  email = ${gitEmail}
-
-[core]
-  autocrlf = input
-  eol      = lf
-  editor   = vim
-
-[init]
-  defaultBranch = main
-
-[pull]
-  rebase = true
-
-[push]
-  autoSetupRemote = true
-
-[credential]
-  helper = store
-
-# ── SSH commit signing ──────────────────────────────────────────────────────
-[user]
-  signingkey = ~/.ssh/git_signing_key
-
-[gpg]
-  format = ssh
-
-[gpg "ssh"]
-  allowedSignersFile = ~/.ssh/allowed_signers
-
-[commit]
-  gpgsign = true
-
-[tag]
-  gpgsign = true
-
-[alias]
-  st  = status
-  co  = checkout
-  br  = branch
-  lg  = log --oneline --graph --decorate --all
-GCFG
-      chown ${user}:users "$GIT_CFG"
-      chmod 644 "$GIT_CFG"
-
-      # ── GitHub Actions key (copy once) ───────────────────────────────────
-      PRIV="$SSH_DIR/gh_action_key"
-      PUB="$SSH_DIR/gh_action_key.pub"
-      if [ -f "$KEY_SRC/gh_action_key" ] && [ ! -f "$PRIV" ]; then
-        echo "[git-ssh] Copying gh_action_key -> $SSH_DIR/"
-        cp "$KEY_SRC/gh_action_key"     "$PRIV"
-        cp "$KEY_SRC/gh_action_key.pub" "$PUB"
-        chown ${user}:users "$PRIV" "$PUB"
-        chmod 600 "$PRIV"
-        chmod 644 "$PUB"
-      fi
-
-      # ── Git signing key (write public key, private key stays in ~/.ssh) ──
-      SIGN_PUB="$SSH_DIR/git_signing_key.pub"
-      echo "[git-ssh] Ensuring $SIGN_PUB"
-      printf '%s\n' "${gitSigningPubKey}" > "$SIGN_PUB"
-      chown ${user}:users "$SIGN_PUB"
-      chmod 644 "$SIGN_PUB"
-      # Private key (git_signing_key) was generated once and lives in ~/.ssh/
-      # It is NOT managed here to avoid accidental overwrite.
-
-      # ── ~/.ssh/config (re-written on every rebuild) ──────────────────────
-      SSH_CFG="$SSH_DIR/config"
-      echo "[git-ssh] Writing $SSH_CFG"
-      cat > "$SSH_CFG" << 'SCFG'
-# GitHub – authentication (push/pull)
-Host github.com
-  User            git
-  IdentityFile    ~/.ssh/gh_action_key
-  AddKeysToAgent  yes
-
-# Global defaults
-Host *
-  ServerAliveInterval 60
-  ServerAliveCountMax 3
-SCFG
-      chown ${user}:users "$SSH_CFG"
-      chmod 600 "$SSH_CFG"
-    '';
   };
 }

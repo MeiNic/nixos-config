@@ -260,7 +260,7 @@ in
       # Timers
       echo ""
       bold "● Systemd Timers"
-      systemctl list-timers borgbackup-job-usb-a.timer btrbk.timer btrbk-daily.timer \
+      systemctl list-timers borgbackup-job-usb-a.timer btrbk.timer \
         --no-pager 2>/dev/null | grep -v "^$" || true
 
       # BTRFS snapshots
@@ -352,29 +352,6 @@ in
       OnCalendar         = "hourly";
       Persistent         = true;   # catch up after sleep/poweroff
       RandomizedDelaySec = "5m";
-    };
-  };
-
-  systemd.services.btrbk-daily = {
-    description = "btrbk BTRFS snapshot (daily)";
-    after       = [ "local-fs.target" ];
-    requires    = [ "local-fs.target" ];
-    serviceConfig = {
-      Type           = "oneshot";
-      ExecStart      = "${pkgs.btrbk}/bin/btrbk -c ${btrbkConfig} run";
-      User           = "root";
-      ProtectSystem  = "strict";
-      ReadWritePaths = [ "/" snapshotMount "/var/log" ];
-      PrivateTmp     = true;
-    };
-  };
-  systemd.timers.btrbk-daily = {
-    description = "btrbk BTRFS snapshot (daily midnight)";
-    wantedBy    = [ "timers.target" ];
-    timerConfig = {
-      OnCalendar         = "daily";
-      Persistent         = true;
-      RandomizedDelaySec = "10m";
     };
   };
 

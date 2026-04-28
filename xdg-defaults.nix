@@ -32,8 +32,11 @@
 #   xdg-mime query default text/html
 #   xdg-mime query default application/pdf
 # =============================================================================
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
+let
+  bindMimes = app: mimes: lib.genAttrs mimes (_: app);
+in
 {
   # ── Option A: legacy environment variables ──────────────────────────────────
   # Used by terminals, scripts, and programs that don't honour XDG MIME.
@@ -48,75 +51,51 @@
   # ── Option B: XDG MIME default applications ─────────────────────────────────
   # Written to /etc/xdg/mimeapps.list; overridden per-user via
   # ~/.config/mimeapps.list (Cinnamon "Open With…" writes there).
-  xdg.mime.defaultApplications = {
+  xdg.mime.defaultApplications = lib.mkMerge [
+    (bindMimes "brave-browser.desktop" [
+      "text/html" "x-scheme-handler/http" "x-scheme-handler/https"
+      "x-scheme-handler/ftp" "x-scheme-handler/about" "x-scheme-handler/unknown"
+    ])
 
-    # ── Web ──────────────────────────────────────────────────────────────────
-    "text/html"                = "brave-browser.desktop";
-    "x-scheme-handler/http"    = "brave-browser.desktop";
-    "x-scheme-handler/https"   = "brave-browser.desktop";
-    "x-scheme-handler/ftp"     = "brave-browser.desktop";
-    "x-scheme-handler/about"   = "brave-browser.desktop";
-    "x-scheme-handler/unknown" = "brave-browser.desktop";
+    (bindMimes "thunderbird.desktop" [ "x-scheme-handler/mailto" "message/rfc822" ])
 
-    # ── E-Mail ───────────────────────────────────────────────────────────────
-    "x-scheme-handler/mailto"  = "thunderbird.desktop";
-    "message/rfc822"           = "thunderbird.desktop";
+    (bindMimes "org.gnome.Evince.desktop" [ "application/pdf" "application/x-pdf" ])
 
-    # ── PDF & Documents ──────────────────────────────────────────────────────
-    "application/pdf"                  = "org.gnome.Evince.desktop";
-    "application/x-pdf"                = "org.gnome.Evince.desktop";
-    "application/vnd.ms-powerpoint"    = "impress.desktop";          # LibreOffice Impress
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                                       = "impress.desktop";
-    "application/msword"               = "writer.desktop";           # LibreOffice Writer
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                                       = "writer.desktop";
-    "application/vnd.ms-excel"         = "calc.desktop";             # LibreOffice Calc
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                       = "calc.desktop";
+    (bindMimes "impress.desktop" [
+      "application/vnd.ms-powerpoint"
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    ])
 
-    # ── Images ───────────────────────────────────────────────────────────────
-    "image/jpeg"      = "org.gnome.gThumb.desktop";  # or: eog.desktop / gwenview.desktop / gimp.desktop
-    "image/png"       = "org.gnome.gThumb.desktop";
-    "image/gif"       = "org.gnome.gThumb.desktop";
-    "image/webp"      = "org.gnome.gThumb.desktop";
-    "image/svg+xml"   = "org.gnome.gThumb.desktop";
-    "image/tiff"      = "org.gnome.gThumb.desktop";
-    "image/bmp"       = "org.gnome.gThumb.desktop";
+    (bindMimes "writer.desktop" [
+      "application/msword"
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ])
 
-    # ── Video ────────────────────────────────────────────────────────────────
-    "video/mp4"       = "vlc.desktop";
-    "video/x-matroska"= "vlc.desktop";
-    "video/webm"      = "vlc.desktop";
-    "video/avi"       = "vlc.desktop";
-    "video/quicktime" = "vlc.desktop";
-    "video/x-msvideo" = "vlc.desktop";
+    (bindMimes "calc.desktop" [
+      "application/vnd.ms-excel"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ])
 
-    # ── Audio ────────────────────────────────────────────────────────────────
-    "audio/mpeg"      = "vlc.desktop";
-    "audio/ogg"       = "vlc.desktop";
-    "audio/flac"      = "vlc.desktop";
-    "audio/wav"       = "vlc.desktop";
-    "audio/aac"       = "vlc.desktop";
-    "audio/x-m4a"     = "vlc.desktop";
+    (bindMimes "org.gnome.gThumb.desktop" [
+      "image/jpeg" "image/png" "image/gif" "image/webp" 
+      "image/svg+xml" "image/tiff" "image/bmp"
+    ])
 
-    # ── Archives ─────────────────────────────────────────────────────────────
-    # Cinnamon's file manager (Nemo) handles these natively via file-roller.
-    "application/zip"             = "org.gnome.FileRoller.desktop";
-    "application/x-tar"           = "org.gnome.FileRoller.desktop";
-    "application/x-compressed-tar"= "org.gnome.FileRoller.desktop";
-    "application/x-7z-compressed" = "org.gnome.FileRoller.desktop";
-    "application/x-rar"           = "org.gnome.FileRoller.desktop";
+    (bindMimes "vlc.desktop" [
+      "video/mp4" "video/x-matroska" "video/webm" "video/avi" 
+      "video/quicktime" "video/x-msvideo"
+      "audio/mpeg" "audio/ogg" "audio/flac" "audio/wav" "audio/aac" "audio/x-m4a"
+    ])
 
-    # ── Text / Code ──────────────────────────────────────────────────────────
-    "text/plain"      = "code.desktop";      # VS Code; or: gedit.desktop / vim.desktop
-    "text/x-script.python" = "code.desktop";
-    "application/json"     = "code.desktop";
-    "application/xml"      = "code.desktop";
+    (bindMimes "org.gnome.FileRoller.desktop" [
+      "application/zip" "application/x-tar" "application/x-compressed-tar"
+      "application/x-7z-compressed" "application/x-rar"
+    ])
 
-    # ── File manager ─────────────────────────────────────────────────────────
-    "inode/directory"  = "nemo.desktop";     # Cinnamon's Nemo file manager
-  };
+    (bindMimes "code.desktop" [ "text/plain" "text/x-script.python" "application/json" "application/xml" ])
+
+    { "inode/directory" = "nemo.desktop"; }
+  ];
 
   # ── xdg-utils: makes xdg-open / xdg-email / xdg-mime work correctly ────────
   xdg.portal = {

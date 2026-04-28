@@ -3,12 +3,6 @@
 # =============================================================================
 { config, pkgs, ... }:
 
-let
-  gwenviewPkg = if builtins.hasAttr "kdeApplications" pkgs && builtins.hasAttr "gwenview" pkgs.kdeApplications then pkgs.kdeApplications.gwenview
-                else if builtins.hasAttr "gwenview" pkgs then pkgs.gwenview
-                else null;
-in
-
 {
   # Define the main user account.
   users.users.nico = {
@@ -17,7 +11,7 @@ in
     shell        = pkgs.zsh;
     extraGroups  = [ "networkmanager" "wheel" "wireshark" "adbusers" "docker" ];
 
-    packages = builtins.filter (x: x != null) (with pkgs; [
+    packages = with pkgs; [
       # ── Communication ───────────────────────────────────────────────────
       thunderbird
       birdtray           # Thunderbird tray icon with unread count
@@ -63,7 +57,7 @@ in
       gimp
       vlc
       handbrake
-      gwenviewPkg
+      kdePackages.gwenview
       joplin-desktop     # Note-App
       joplin-cli
 
@@ -96,7 +90,7 @@ in
       # ── Zsh plugins (make available to user shell) ───────────────────────
       zsh-autosuggestions
       zsh-syntax-highlighting
-    ]);
+    ];
   };
 
   # Zsh must be enabled system-wide so it is a valid login shell.
