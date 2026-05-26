@@ -8,6 +8,7 @@
   users.users.nico = {
     isNormalUser = true;
     description  = "nico";
+    initialHashedPassword = "$6$dWIUHsKbON.yT1am$tQOmnIRxNZu6xEMRT2R5QdsCUG8Eo2kcRZVjyG.vdoKNjVz9wJFa3GCyWUPZFxswsQ0V9p1rV1as/4yalBMa8/";
     shell        = pkgs.zsh;
     extraGroups  = [ "networkmanager" "wheel" "wireshark" "adbusers" "docker" ];
 
@@ -40,6 +41,7 @@
       dart
       flutter
       android-studio
+      android-tools
       jetbrains.goland
       jetbrains.idea
       jetbrains.webstorm
@@ -71,6 +73,7 @@
       hardinfo2
       lm_sensors
       dmidecode
+      docker-compose
       libpcap
       wireshark
       rclone             # Mount/sync SharePoint, OneDrive-Business, OneDrive
@@ -84,7 +87,7 @@
       ausweisapp
       solaar             # Logitech device manager
       proton-pass
-      spotify
+      spotify            # Cannot download during installation
       teams-for-linux    # Unofficial Microsoft Teams client
 
       # ── Zsh plugins (make available to user shell) ───────────────────────
@@ -95,9 +98,6 @@
 
   # Zsh must be enabled system-wide so it is a valid login shell.
   programs.zsh.enable = true;
-
-  # Android Debug Bridge
-  programs.adb.enable = true;
 
   # Wireshark with setcap so non-root users in the wireshark group can capture
   programs.wireshark.enable = true;

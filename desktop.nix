@@ -7,13 +7,13 @@
   # ── X11 / Display Manager ──────────────────────────────────────────────────
   services.xserver.enable = true;
 
-  # Cinnamon Desktop Environment
+  # Cinnamon Desktop Environment (enable Cinnamon + LightDM)
   services.xserver.displayManager.lightdm.enable  = true;
   services.xserver.desktopManager.cinnamon.enable = true;
 
-  # --- KDE Plasma (commented out for quick switch) --------------------------
-  # services.displayManager.sddm.enable      = true;
-  # services.desktopManager.plasma6.enable   = true;
+  # Disable KDE Plasma/SDDM on this Nix system when using Cinnamon
+  services.displayManager.sddm.enable      = false;
+  services.desktopManager.plasma6.enable   = false;
   # systemd.user.services.birdtray           = { ... };
   # systemd.user.services.plasmaCustomization = { ... };
 
