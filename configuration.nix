@@ -16,7 +16,7 @@
 # Help: nixos-help  |  man configuration.nix  |  https://nixos.org/nixos/options.html
 # =============================================================================
 
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   imports = [
@@ -32,39 +32,19 @@
 
   # ── Networking ─────────────────────────────────────────────────────────────
   networking.hostName              = "nixos";
-  networking.networkmanager.enable = true;
-  # networking.wireless.enable     = true;   # wpa_supplicant alternative
-  # networking.proxy.default       = "http://user:password@proxy:port/";
-  # networking.proxy.noProxy       = "127.0.0.1,localhost,internal.domain";
-
-  # Firewall (open ports as needed)
-  # networking.firewall.allowedTCPPorts = [ 80 443 ];
-  # networking.firewall.allowedUDPPorts = [ ];
-  # networking.firewall.enable = false;
+  networking.networkmanager.enable  = true;
+  networking.networkmanager.plugins = [ pkgs.networkmanager-openconnect ];
+  networking.firewall.enable        = true;
 
   # ── Locale & Time ──────────────────────────────────────────────────────────
   time.timeZone      = "Europe/Berlin";
   i18n.defaultLocale = "de_DE.UTF-8";
 
-  i18n.extraLocaleSettings = {
-    LC_ADDRESS        = "de_DE.UTF-8";
-    LC_IDENTIFICATION = "de_DE.UTF-8";
-    LC_MEASUREMENT    = "de_DE.UTF-8";
-    LC_MONETARY       = "de_DE.UTF-8";
-    LC_NAME           = "de_DE.UTF-8";
-    LC_NUMERIC        = "de_DE.UTF-8";
-    LC_PAPER          = "de_DE.UTF-8";
-    LC_TELEPHONE      = "de_DE.UTF-8";
-    LC_TIME           = "de_DE.UTF-8";
-  };
-
-  # ── System Packages ────────────────────────────────────────────────────────
+  # ── System Packages ──────────────────────────────────────────────────────────
   environment.systemPackages = with pkgs; [
     vim
     wget
-    git
   ];
-
 
   # Only nixos-rebuild still needs sudo – keep that NOPASSWD rule.
   security.sudo.extraRules = [
@@ -89,7 +69,17 @@
 
   programs.mtr.enable = true;
 
+  # ── Network Discovery (mDNS / .local) ─────────────────────────────────────
+  services.avahi = {
+    enable       = true;
+    nssmdns4     = true;   # lets getaddrinfo() resolve .local hostnames
+    openFirewall = true;
+  };
+
   # ── Virtualisation ─────────────────────────────────────────────────────────
+  virtualisation.virtualbox.host.enable = true;
+  virtualisation.virtualbox.host.enableExtensionPack = true;
+
   virtualisation.docker.enable = true;
   virtualisation.docker.autoPrune.enable = true;
   virtualisation.docker.daemon.settings = {

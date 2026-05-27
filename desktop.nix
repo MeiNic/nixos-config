@@ -1,7 +1,7 @@
 # =============================================================================
 # Desktop Environment, Display & Input
 # =============================================================================
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   # ── X11 / Display Manager ──────────────────────────────────────────────────
@@ -11,17 +11,8 @@
   services.xserver.displayManager.lightdm.enable  = true;
   services.xserver.desktopManager.cinnamon.enable = true;
 
-  # Disable KDE Plasma/SDDM on this Nix system when using Cinnamon
-  services.displayManager.sddm.enable      = false;
-  services.desktopManager.plasma6.enable   = false;
-  # systemd.user.services.birdtray           = { ... };
-  # systemd.user.services.plasmaCustomization = { ... };
-
   # ── Keyboard Layout ────────────────────────────────────────────────────────
-  services.xserver.xkb = {
-    layout  = "de";
-    variant = "";
-  };
+  services.xserver.xkb.layout = "de";
 
   console.keyMap = "de";
 
@@ -40,18 +31,33 @@
     # jack.enable = true;
   };
 
+  # ── Process Scheduler (CPU/IO priority) ───────────────────────────────────
+  services.ananicy-cpp.enable = true;
+
   # ── Printing ───────────────────────────────────────────────────────────────
   services.printing.enable = true;
+  services.printing.drivers = with pkgs; [
+    gutenprint
+    gutenprintBin
+    ghostscript
+  ];
 
   # ── Fingerprint Sensor ────────────────────────────────────────────────────
   services.fprintd.enable = true;
 
+  # ── Fonts ──────────────────────────────────────────────────────────────────
+  fonts.packages = with pkgs; [
+    noto-fonts-emoji    # colour emoji (avoids □ boxes in browser/apps)
+    liberation_ttf      # Arial/Times/Courier drop-ins for Office doc compat
+    nerd-fonts.meslo-lg # MesloLGS icons for the zsh powerline prompt
+  ];
+
   # ── System Packages (desktop-related) ─────────────────────────────────────
   environment.systemPackages = with pkgs; [
-    budgie-desktop
     gnome-keyring
     gnome-terminal
-    dconf             # needed for the panel-setup script below
+    dconf       # needed for the panel-setup script below
+    pavucontrol # graphical mixer: route apps to different audio outputs
   ];
 
   # ── Cinnamon Multi-Monitor Taskbar ─────────────────────────────────────────

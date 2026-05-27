@@ -76,8 +76,8 @@ in
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     ])
 
-    (bindMimes "org.gnome.gThumb.desktop" [
-      "image/jpeg" "image/png" "image/gif" "image/webp" 
+    (bindMimes "org.kde.gwenview.desktop" [
+      "image/jpeg" "image/png" "image/gif" "image/webp"
       "image/svg+xml" "image/tiff" "image/bmp"
     ])
 
@@ -87,7 +87,7 @@ in
       "audio/mpeg" "audio/ogg" "audio/flac" "audio/wav" "audio/aac" "audio/x-m4a"
     ])
 
-    (bindMimes "org.gnome.FileRoller.desktop" [
+    (bindMimes "org.kde.ark.desktop" [
       "application/zip" "application/x-tar" "application/x-compressed-tar"
       "application/x-7z-compressed" "application/x-rar"
     ])

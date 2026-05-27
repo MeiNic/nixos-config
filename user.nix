@@ -1,7 +1,7 @@
 # =============================================================================
 # User Account & Packages
 # =============================================================================
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   # Define the main user account.
@@ -10,7 +10,7 @@
     description  = "nico";
     initialHashedPassword = "$6$dWIUHsKbON.yT1am$tQOmnIRxNZu6xEMRT2R5QdsCUG8Eo2kcRZVjyG.vdoKNjVz9wJFa3GCyWUPZFxswsQ0V9p1rV1as/4yalBMa8/";
     shell        = pkgs.zsh;
-    extraGroups  = [ "networkmanager" "wheel" "wireshark" "adbusers" "docker" ];
+    extraGroups  = [ "networkmanager" "wheel" "wireshark" "adbusers" "docker" "vboxusers" ];
 
     packages = with pkgs; [
       # ── Communication ───────────────────────────────────────────────────
@@ -24,20 +24,14 @@
       google-chrome
 
       # ── Development ─────────────────────────────────────────────────────
-      git
       gh                 # GitHub CLI
       act                # Run GitHub Actions locally
       vscode
       go
-      jdk
       jdk21
       nodejs
       python3
-      python3Packages.pip
-      cargo
-      rustc
       rustup
-      rustfmt
       dart
       flutter
       android-studio
@@ -48,8 +42,7 @@
       jetbrains.rust-rover
 
       # ── Security & Crypto ───────────────────────────────────────────────
-      gnupg
-      keepass
+      keepassxc
 
       # ── Productivity & Office ───────────────────────────────────────────
       libreoffice-fresh
@@ -59,13 +52,13 @@
       gimp
       vlc
       handbrake
+      kdePackages.ark      # archive manager (zip, tar, 7z, rar)
       kdePackages.gwenview
       joplin-desktop     # Note-App
       joplin-cli
 
       # ── Network & VPN ───────────────────────────────────────────────────
       openconnect
-      networkmanager-openconnect
 
       # ── System & Utilities ──────────────────────────────────────────────
       p7zip
@@ -73,14 +66,27 @@
       hardinfo2
       lm_sensors
       dmidecode
-      docker-compose
-      libpcap
-      wireshark
       rclone             # Mount/sync SharePoint, OneDrive-Business, OneDrive
 
       # ── AI / ML ─────────────────────────────────────────────────────────
       ollama
       open-webui
+
+      # ── Media ───────────────────────────────────────────────────────────
+      haruna             # KDE video player with playlist/chapter UI
+
+      # ── Security ────────────────────────────────────────────────────────
+      hashcat            # GPU-accelerated password recovery / hash cracking
+
+      # ── CLI Utilities ───────────────────────────────────────────────────
+      ripgrep            # rg: fast grep replacement used by editors/scripts
+      vorta              # GUI frontend for BorgBackup (browse/restore archives)
+
+      # ── Windows Compatibility ────────────────────────────────────────────
+      wineWowPackages.stable  # run .exe files; WoW = 32-bit + 64-bit support
+
+      # ── Languages ───────────────────────────────────────────────────────
+      zig                # Zig toolchain (compiler + build system)
 
       # ── Misc ────────────────────────────────────────────────────────────
       discord
@@ -88,19 +94,16 @@
       solaar             # Logitech device manager
       proton-pass
       spotify            # Cannot download during installation
-      teams-for-linux    # Unofficial Microsoft Teams client
-
-      # ── Zsh plugins (make available to user shell) ───────────────────────
-      zsh-autosuggestions
-      zsh-syntax-highlighting
     ];
   };
 
   # Zsh must be enabled system-wide so it is a valid login shell.
-  programs.zsh.enable = true;
+  programs.zsh = {
+    enable                    = true;
+    autosuggestions.enable    = true;
+    syntaxHighlighting.enable = true;
+  };
 
   # Wireshark with setcap so non-root users in the wireshark group can capture
   programs.wireshark.enable = true;
-  
-  virtualisation.docker.enable = true;
 }
