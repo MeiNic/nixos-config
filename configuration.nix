@@ -9,7 +9,7 @@
 #  filesystems.nix     ← btrfs subvolume mounts (shared LUKS partition)
 #  desktop.nix         ← display manager, DE, audio, printing, input
 #  user.nix            ← users.users.nico, user packages, zsh, adb, wireshark
-#  git-ssh.nix         ← git config, SSH key deployment (from Windows migration)
+#  git-ssh.nix         ← git config, SSH host config, GPG agent, sshd hardening
 #  backup.nix          ← btrbk snapshots + BorgBackup to USB drives
 #  xdg-defaults.nix    ← default applications (MIME types, BROWSER/EDITOR vars, xdg-portal)
 #

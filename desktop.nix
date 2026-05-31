@@ -16,9 +16,6 @@
 
   console.keyMap = "de";
 
-  # ── Touchpad ───────────────────────────────────────────────────────────────
-  services.libinput.enable = true;
-
   # ── Audio (PipeWire) ───────────────────────────────────────────────────────
   security.rtkit.enable = true;
 

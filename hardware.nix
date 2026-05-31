@@ -67,6 +67,9 @@ in
   # ── Kernel ─────────────────────────────────────────────────────────────────
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
+  # Framework EC doesn't use this module; suppresses a misleading boot error
+  boot.blacklistedKernelModules = [ "cros-usbpd-charger" ];
+
   # Kernel parameters for Intel Core Ultra 155H (Meteor Lake) power tuning
   boot.kernelParams = [
     # Prevents keyboard backlight staying on during s2idle (~1 %/hr drain)
@@ -147,8 +150,17 @@ in
   # ── IIO Sensor Proxy (accelerometer, ambient-light sensor) ─────────────────
   hardware.iio-sensor-proxy.enable = true;
 
+  # Grants userspace access to the ACPI backlight interface for brightness keys
+  hardware.acpilight.enable = true;
+
   # ── YubiKey / Smart-Card ───────────────────────────────────────────────────
   services.pcscd.enable = true;
+
+  # ── udev Rules ─────────────────────────────────────────────────────────────
+  services.udev.extraRules = ''
+    # Ethernet expansion card (RTL8156): set USB autosuspend to 20 s
+    ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0bda", ATTR{idProduct}=="8156", ATTR{power/autosuspend}="20"
+  '';
 
   # ── System Packages (hardware-related) ─────────────────────────────────────
   environment.systemPackages = with pkgs; [
@@ -160,5 +172,6 @@ in
     duf               # modern df replacement
     fastfetch         # system info
     rsync             # file sync / remote copy
+    framework-tool    # Framework-specific CLI (charge limit, LEDs, EC info)
   ];
 }
