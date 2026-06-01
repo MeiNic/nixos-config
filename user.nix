@@ -9,7 +9,7 @@
     isNormalUser = true;
     description  = "nico";
     initialHashedPassword = "$6$dWIUHsKbON.yT1am$tQOmnIRxNZu6xEMRT2R5QdsCUG8Eo2kcRZVjyG.vdoKNjVz9wJFa3GCyWUPZFxswsQ0V9p1rV1as/4yalBMa8/";
-    shell        = pkgs.zsh;
+    shell        = pkgs.fish;
     extraGroups  = [ "networkmanager" "wheel" "wireshark" "adbusers" "docker" "vboxusers" ];
 
     packages = with pkgs; [
@@ -83,7 +83,7 @@
       vorta              # GUI frontend for BorgBackup (browse/restore archives)
 
       # ── Windows Compatibility ────────────────────────────────────────────
-      wineWowPackages.stable  # run .exe files; WoW = 32-bit + 64-bit support
+      wineWow64Packages.stable  # run .exe files; 64-bit Wine (upstream preferred)
 
       # ── Languages ───────────────────────────────────────────────────────
       zig                # Zig toolchain (compiler + build system)
@@ -97,7 +97,16 @@
     ];
   };
 
-  # Zsh must be enabled system-wide so it is a valid login shell.
+  # Fish must be enabled system-wide so it is a valid login shell.
+  programs.fish.enable = true;
+
+  # Fish plugins — added to environment.systemPackages so NixOS places them
+  # on the vendor path that fish sources automatically on startup.
+  environment.systemPackages = with pkgs; [
+    fishPlugins.pure     # minimal git-aware prompt (matches existing fish_variables)
+    fishPlugins.autopair # auto-close brackets/quotes
+  ];
+
   programs.zsh = {
     enable                    = true;
     autosuggestions.enable    = true;

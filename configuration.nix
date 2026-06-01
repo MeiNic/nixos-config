@@ -28,13 +28,17 @@
     ./git-ssh.nix
     ./backup.nix
     ./xdg-defaults.nix
+    ./security-auth.nix
   ];
+
+  programs.nix-ld.enable = true;
 
   # ── Networking ─────────────────────────────────────────────────────────────
   networking.hostName              = "nixos";
   networking.networkmanager.enable  = true;
   networking.networkmanager.plugins = [ pkgs.networkmanager-openconnect ];
-  networking.firewall.enable        = true;
+  networking.firewall.enable                    = true;
+  networking.firewall.logRefusedConnections     = true;  # 26.05: default changed to false
 
   # ── Locale & Time ──────────────────────────────────────────────────────────
   time.timeZone      = "Europe/Berlin";
@@ -77,14 +81,13 @@
   };
 
   # ── Virtualisation ─────────────────────────────────────────────────────────
-  virtualisation.virtualbox.host.enable = true;
-  virtualisation.virtualbox.host.enableExtensionPack = true;
+  # virtualisation.virtualbox.host.enable = true;
+  # virtualisation.virtualbox.host.enableExtensionPack = true;
 
   virtualisation.docker.enable = true;
   virtualisation.docker.autoPrune.enable = true;
   virtualisation.docker.daemon.settings = {
     storage-driver = "btrfs";
-    data-root = "/var/lib/docker/@docker";
   };
 
   # ── Flatpak ────────────────────────────────────────────────────────────────

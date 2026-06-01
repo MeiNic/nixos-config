@@ -145,10 +145,10 @@ in
   };
 
   # ── Thunderbolt ────────────────────────────────────────────────────────────
-  hardware.bolt.enable = true;
+  # hardware.bolt.enable = true;
 
   # ── IIO Sensor Proxy (accelerometer, ambient-light sensor) ─────────────────
-  hardware.iio-sensor-proxy.enable = true;
+  # hardware.iio-sensor-proxy.enable = true;
 
   # Grants userspace access to the ACPI backlight interface for brightness keys
   hardware.acpilight.enable = true;
