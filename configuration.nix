@@ -1,22 +1,3 @@
-# =============================================================================
-# NixOS System Configuration  –  entry point
-# =============================================================================
-#
-# Module layout
-# ─────────────
-#  configuration.nix   ← you are here (networking, locale, services, state)
-#  hardware.nix        ← boot, LUKS, kernel, power, bluetooth, firmware
-#  filesystems.nix     ← btrfs subvolume mounts (shared LUKS partition)
-#  desktop.nix         ← display manager, DE, audio, printing, input
-#  user.nix            ← users.users.nico, user packages, zsh, adb, wireshark
-#  git-ssh.nix         ← git config, SSH host config, GPG agent, sshd hardening
-#  backup.nix          ← btrbk snapshots + BorgBackup to USB drives
-#  xdg-defaults.nix    ← default applications (MIME types, BROWSER/EDITOR vars, xdg-portal)
-#  eduroam.nix         ← eduroam Wi-Fi (EAP-TLS via easyroam/geteduroam certificate)
-#
-# Help: nixos-help  |  man configuration.nix  |  https://nixos.org/nixos/options.html
-# =============================================================================
-
 { pkgs, ... }:
 
 {

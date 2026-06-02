@@ -1,37 +1,3 @@
-# =============================================================================
-# Default Applications (XDG MIME, environment variables, xdg-utils)
-# =============================================================================
-#
-# THREE LAYERS – use the right one for each program:
-#
-#  1. environment.sessionVariables   (Option A)
-#     ─────────────────────────────────────────────
-#     Shell/session env-vars read by many legacy programs and terminals.
-#     Does NOT affect GUI apps launched from the .desktop files.
-#
-#  2. xdg.mime.defaultApplications   (Option B)  ← the standard approach
-#     ─────────────────────────────────────────────
-#     Writes /etc/xdg/mimeapps.list.  This is the XDG standard.
-#     Most GUI apps (Cinnamon file manager, browsers, …) use this.
-#     Values must be .desktop file IDs (basename of the .desktop file).
-#
-#  3. environment.etc."xdg/mimeapps.list"  (Option C – fallback)
-#     ─────────────────────────────────────────────
-#     Manual mimeapps.list if you need fine-grained control over
-#     entries xdg.mime.defaultApplications does not expose.
-#
-# Priority:  ~/.config/mimeapps.list  >  /etc/xdg/mimeapps.list
-#            (user overrides always win, so Cinnamon's "Open With…"
-#             dialog still works as expected)
-#
-# To find the correct .desktop ID for any program:
-#   find /run/current-system/sw/share/applications ~/.local/share/applications \
-#        -name '*.desktop' | sort
-#
-# To inspect what is currently registered for a MIME type:
-#   xdg-mime query default text/html
-#   xdg-mime query default application/pdf
-# =============================================================================
 { pkgs, lib, ... }:
 
 let

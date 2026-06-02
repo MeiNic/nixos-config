@@ -1,70 +1,3 @@
-# =============================================================================
-# Snapshot & Incremental Backup Configuration
-# =============================================================================
-#
-# ARCHITECTURE
-# ------------
-#
-#  Layer 1 – BTRFS Snapshots (local, on the 'shared' LUKS partition)
-#    • Tool:      btrbk
-#    • Location:  /.snapshots/ (@snapshots subvolume)
-#    • Schedule:  hourly (keep 24h) + daily midnight (keep 14d/8w/12m)
-#    • Purpose:   Fast local rollback. NOT a substitute for off-disk backup.
-#
-#  Layer 2 – BorgBackup to USB Drive A  (automatic)
-#    • Triggered by a systemd timer (daily at 02:30)
-#    • If Drive A is NOT mounted → exits cleanly, no error, no retry spam
-#    • If the PC was off at 02:30 → Persistent=true catches up on next boot
-#      (if drive is plugged in at that point; otherwise skipped cleanly)
-#    • Interrupted backups resume from last checkpoint (every 5 min)
-#
-#  Layer 3 – BorgBackup to USB Drive B  (manual)
-#    • NO timer – never runs automatically
-#    • Trigger manually:
-#        sudo systemctl start borgbackup-job-usb-manual
-#    • Same drive-absent safety as Drive A
-#
-# USB DRIVE SETUP (run once per drive)
-# -------------------------------------
-#  Both drives must have a stable mount point. Best done via udev label:
-#
-#  1. Format & label the Borg partition (example, adjust /dev/sdX):
-#       sudo mkfs.ext4 -L borg-usb-a /dev/sdX1   # or keep existing FS
-#
-#  2. Create mount points:
-#       sudo mkdir -p /mnt/borg-usb-a /mnt/borg-usb-b
-#
-#  3. Add to /etc/nixos/backup.nix (already done below via fileSystems).
-#     NixOS mounts them with 'nofail' so a missing drive doesn't block boot.
-#
-#  4. Initialise Borg repositories (drive must be plugged in):
-#       export BORG_PASSPHRASE="your-strong-passphrase"
-#       sudo borg init --encryption=repokey-blake2 /mnt/borg-usb-a/borg-repo
-#       sudo borg init --encryption=repokey-blake2 /mnt/borg-usb-b/borg-repo
-#
-#  5. Store passphrase (same for both drives is fine, or use separate files):
-#       sudo mkdir -p /etc/nixos/secrets
-#       echo "your-strong-passphrase" | sudo tee /etc/nixos/secrets/borg-passphrase
-#       sudo chmod 600 /etc/nixos/secrets/borg-passphrase
-#
-# MANUAL BACKUP COMMANDS
-# ----------------------
-#   Trigger Drive B backup now:
-#     sudo systemctl start borgbackup-job-usb-manual
-#
-#   Check backup status / last run:
-#     sudo systemctl status borgbackup-job-usb-a
-#     sudo systemctl status borgbackup-job-usb-manual
-#
-#   List archives on a drive:
-#     sudo BORG_PASSPHRASE=$(cat /etc/nixos/secrets/borg-passphrase) \
-#       borg list /mnt/borg-usb-a/borg-repo
-#
-#   Restore a file (example):
-#     sudo BORG_PASSPHRASE=$(cat /etc/nixos/secrets/borg-passphrase) \
-#       borg extract /mnt/borg-usb-a/borg-repo::archive-name path/to/file
-#
-# =============================================================================
 
 { config, pkgs, lib, ... }:
 
@@ -214,25 +147,14 @@ let
 
 in
 {
-  # ==========================================================================
-  # 1. USB Borg drive mounts are handled directly by the backup scripts
-  #    (they detect the device by label and mount it on demand).
-  #    No fileSystems entries needed – avoids systemd unit failures when
-  #    drives are not connected at boot or rebuild time.
-  # ==========================================================================
-
-  # ==========================================================================
-  # 2. @snapshots subvolume mount point
-  # ==========================================================================
+  # USB drives are mounted on-demand by the backup scripts (by label), so no
+  # fileSystems entries are needed — avoids boot failures when drives are absent.
   fileSystems."${snapshotMount}" = {
     device = sharedDevice;
     fsType = "btrfs";
     options = [ "subvol=@snapshots" "compress=zstd" "noatime" ];
   };
 
-  # ==========================================================================
-  # 3. Packages & helper scripts
-  # ==========================================================================
   environment.systemPackages = with pkgs; [
     btrbk       # BTRFS snapshot manager
     borgbackup  # Incremental backup
@@ -329,9 +251,7 @@ in
     '')
   ];
 
-  # ==========================================================================
-  # 4. btrbk – local BTRFS snapshots
-  # ==========================================================================
+  # ── btrbk: local BTRFS snapshots ───────────────────────────────────────────
   systemd.services.btrbk = {
     description = "btrbk BTRFS snapshot (hourly)";
     after       = [ "local-fs.target" ];
@@ -355,15 +275,7 @@ in
     };
   };
 
-  # ==========================================================================
-  # 5. BorgBackup – Drive A  (AUTOMATIC, daily at 02:30)
-  #
-  # Behavior when drive is absent:
-  #   • The wrapper script detects the missing mountpoint and exits 0
-  #   • systemd sees success → no failed-unit, no spam
-  #   • Persistent=true → if 02:30 was missed (PC off), runs on next boot
-  #     If drive is still absent then → exits 0 again, skipped silently
-  # ==========================================================================
+  # ── BorgBackup Drive A: automatic, daily 02:30 ─────────────────────────────
   systemd.services.borgbackup-job-usb-a = {
     description = "BorgBackup → USB Drive A (automatic)";
     after       = [ "local-fs.target" "network.target" ];
@@ -388,15 +300,7 @@ in
     };
   };
 
-  # ==========================================================================
-  # 6. BorgBackup – Drive B  (MANUAL, no timer)
-  #
-  # Trigger with:
-  #   sudo systemctl start borgbackup-job-usb-manual
-  #
-  # Or add a desktop shortcut / alias:
-  #   alias backup-usb-b='sudo systemctl start borgbackup-job-usb-manual && sudo journalctl -fu borgbackup-job-usb-manual'
-  # ==========================================================================
+  # ── BorgBackup Drive B: manual trigger only ────────────────────────────────
   systemd.services.borgbackup-job-usb-manual = {
     description = "BorgBackup → USB Drive B (manual trigger)";
     after       = [ "local-fs.target" "network.target" ];

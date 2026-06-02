@@ -1,15 +1,3 @@
-# =============================================================================
-# PAM Authentication – Fingerprint + YubiKey only (no password)
-# =============================================================================
-# Covers:
-#   kscreenlocker – KDE screen lock
-#   kde           – KDE auth (also used by the screen locker)
-#   sddm          – login screen
-#
-# Recovery: Ctrl+Alt+F2 → TTY login still uses the `login` PAM service
-#   which is untouched → password still works there.
-#   Or select the previous NixOS generation at the boot menu.
-# =============================================================================
 { lib, ... }:
 
 {
