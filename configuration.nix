@@ -12,6 +12,7 @@
 #  git-ssh.nix         ← git config, SSH host config, GPG agent, sshd hardening
 #  backup.nix          ← btrbk snapshots + BorgBackup to USB drives
 #  xdg-defaults.nix    ← default applications (MIME types, BROWSER/EDITOR vars, xdg-portal)
+#  eduroam.nix         ← eduroam Wi-Fi (EAP-TLS via easyroam/geteduroam certificate)
 #
 # Help: nixos-help  |  man configuration.nix  |  https://nixos.org/nixos/options.html
 # =============================================================================
@@ -29,6 +30,7 @@
     ./backup.nix
     ./xdg-defaults.nix
     ./security-auth.nix
+    ./eduroam.nix
   ];
 
   programs.nix-ld.enable = true;
@@ -36,7 +38,7 @@
   # ── Networking ─────────────────────────────────────────────────────────────
   networking.hostName              = "nixos";
   networking.networkmanager.enable  = true;
-  networking.networkmanager.plugins = [ pkgs.networkmanager-openconnect ];
+  networking.networkmanager.plugins = [ pkgs.networkmanager-vpnc pkgs.networkmanager-openconnect ];
   networking.firewall.enable                    = true;
   networking.firewall.logRefusedConnections     = true;  # 26.05: default changed to false
 
@@ -80,6 +82,11 @@
     openFirewall = true;
   };
 
+  # ── Printing ───────────────────────────────────────────────────────────────
+  services.printing.enable = true;
+  services.printing.drivers = [ pkgs.gutenprint ];
+
+
   # ── Virtualisation ─────────────────────────────────────────────────────────
   # virtualisation.virtualbox.host.enable = true;
   # virtualisation.virtualbox.host.enableExtensionPack = true;
@@ -95,6 +102,14 @@
 
   # ── Package Policy ─────────────────────────────────────────────────────────
   nixpkgs.config.allowUnfree = true;
+
+  # ── Generation Management ──────────────────────────────────────────────────
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 14d";
+  };
+
 
   # ── NixOS Release Version ──────────────────────────────────────────────────
   # Keep at the release used during initial install. Read the docs before
