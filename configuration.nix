@@ -56,6 +56,11 @@
 
   programs.mtr.enable = true;
 
+  programs.wireshark = {
+    enable = true;
+    package = pkgs.wireshark;
+  };
+
   # ── Network Discovery (mDNS / .local) ─────────────────────────────────────
   services.avahi = {
     enable       = true;
@@ -72,10 +77,25 @@
   # virtualisation.virtualbox.host.enable = true;
   # virtualisation.virtualbox.host.enableExtensionPack = true;
 
-  virtualisation.docker.enable = true;
-  virtualisation.docker.autoPrune.enable = true;
-  virtualisation.docker.daemon.settings = {
-    storage-driver = "btrfs";
+
+  # Enable Docker daemon and let the container live on the data vg
+  virtualisation.docker = {
+    enable = true;
+    autoPrune.enable = true;
+    daemon.settings = {
+      storage-driver = "btrfs";
+      bip = "172.30.0.1/24";
+      default-address-pools = [
+        { base = "172.30.0.0/16"; size = 24; }
+      ];
+      data-root = "/data/docker";
+      log-driver = "json-file";
+      log-opts = {
+        max-size = "100m";
+        max-file = "10";
+      };
+      live-restore = true;  # containers keep running if daemon restarts
+    };
   };
 
   # ── Flatpak ────────────────────────────────────────────────────────────────

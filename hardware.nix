@@ -40,10 +40,8 @@ in
       options  cryptdevice=UUID=${luksUuids.cachyosLuksUuid}:luks-${luksUuids.cachyosLuksUuid} root=/dev/mapper/luks-${luksUuids.cachyosLuksUuid} rootflags=subvol=/@ rw quiet splash
     '';
 
-    # Chainload the other partition's EFI loader. Useful when the
-    # Cachy partition maintains its own bootloader (you mentioned it does).
-    # This points to the standard fallback EFI path - adjust if your
-    # Cachy EFI file lives elsewhere under the token directory.
+    # Chainload CachyOS's own EFI loader (fallback path; adjust if it lives
+    # elsewhere under the token directory).
     "cachyos-chain.conf" = ''
       title    CachyOS (chainload)
       efi      /${luksUuids.efiToken}/EFI/BOOT/BOOTX64.EFI
@@ -90,43 +88,46 @@ in
   # Reduce kernel VM wakeups — less timer interrupts = deeper C-states
   boot.kernel.sysctl = {
     "kernel.nmi_watchdog"          = 0;     # disable NMI watchdog (saves ~1 W)
-    "vm.dirty_writeback_centisecs" = 6000;  # flush dirty pages every 60 s (default: 5 s)
-    "vm.laptop_mode"               = 5;     # batch disk writes
+    # zram-tuned: prefer compressing anon pages over evicting code-page cache.
+    "vm.swappiness"                = 180;
+    "vm.watermark_boost_factor"    = 0;
+    "vm.watermark_scale_factor"    = 125;
+  };
+
+  # ── Memory Pressure / OOM Protection ───────────────────────────────────────
+  # Without swap or an OOM daemon, full RAM (LLMs, JVMs, Docker) made the kernel
+  # thrash code pages to NVMe and freeze hard. zram adds compressed swap
+  # headroom; earlyoom kills the hog before the freeze (the kernel's own OOM
+  # killer reacts too late).
+  zramSwap = {
+    enable        = true;
+    algorithm     = "zstd";
+    memoryPercent = 50;
+  };
+
+  services.earlyoom = {
+    enable                 = true;
+    freeMemThreshold       = 5;   # start killing when <5 % RAM free …
+    freeSwapThreshold      = 10;  # … and <10 % (zram) swap free
+    enableNotifications    = true;
+    # Prefer to kill memory hogs; never kill the session/critical daemons.
+    extraArgs = [
+      "--prefer" "^(ollama|open-webui|java|chrome|brave|firefox|electron)$"
+      "--avoid"  "^(systemd|sddm|plasmashell|kwin_wayland|Xorg|sshd|dbus-daemon)$"
+    ];
   };
 
   # powertop --auto-tune at boot: enables runtime PM for USB, PCIe & audio
   powerManagement.powertop.enable = true;
 
-  # auto-cpufreq: dynamically adjusts EPP (Energy Performance Preference) and
-  # turbo based on actual CPU load + AC/battery state. This fixes the root
-  # cause of high idle temperatures: power-profiles-daemon's "balanced" mode
-  # sets EPP=balance_performance, keeping cores hot even at low load.
-  # power-profiles-daemon is pulled in by Cinnamon but conflicts with auto-cpufreq.
-  services.power-profiles-daemon.enable = false;
-  services.auto-cpufreq.enable = true;
-  services.auto-cpufreq.settings = {
-    battery = {
-      governor = "powersave";
-      energy_performance_preference = "power";
-      turbo = "never";
-    };
-    charger = {
-      governor = "powersave";
-      energy_performance_preference = "balance_power";
-      turbo = "auto";  # only boosts when load actually demands it
-    };
-  };
+  services.power-profiles-daemon.enable = true;
 
-  # Suspend-then-hibernate (requires swap >= RAM):
-  # systemd.sleep.extraConfig = ''
-  #   HibernateDelaySec=20min
-  # '';
-  # services.logind.lidSwitch = "suspend-then-hibernate";
-
-  # AX210 Wi-Fi: disable Wi-Fi 6/6E if needed:
-  # boot.extraModprobeConfig = ''
-  #   options iwlwifi disable_11ax=Y
-  # '';
+  # ── Wi-Fi (Intel AX210, Wi-Fi 6E) ──────────────────────────────────────────
+  # The 6 GHz band stays disabled under the world ("00") regulatory domain, so
+  # pin it to the actual country to unlock the 6E channels.
+  boot.extraModprobeConfig = ''
+    options cfg80211 ieee80211_regdom=DE
+  '';
 
   # ── Bluetooth ──────────────────────────────────────────────────────────────
   hardware.bluetooth.enable      = true;
@@ -145,10 +146,7 @@ in
   };
 
   # ── Thunderbolt ────────────────────────────────────────────────────────────
-  # hardware.bolt.enable = true;
-
-  # ── IIO Sensor Proxy (accelerometer, ambient-light sensor) ─────────────────
-  # hardware.iio-sensor-proxy.enable = true;
+  services.hardware.bolt.enable = true;   # device authorization / security daemon
 
   # Grants userspace access to the ACPI backlight interface for brightness keys
   hardware.acpilight.enable = true;

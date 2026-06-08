@@ -32,6 +32,7 @@
       nodejs
       python3
       rustup
+      gcc
       dart
       flutter
       android-studio
@@ -45,7 +46,9 @@
       keepassxc
 
       # ── Productivity & Office ───────────────────────────────────────────
+      teams-for-linux
       libreoffice-fresh
+      texliveFull        # LaTeX with full package collection
       drawio
       evince             # PDF viewer
       anki               # Flashcard learning
@@ -93,7 +96,7 @@
       ausweisapp
       solaar             # Logitech device manager
       proton-pass
-      spotify            # Cannot download during installation
+      spotify
     ];
   };
 
