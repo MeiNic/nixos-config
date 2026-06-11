@@ -42,6 +42,16 @@
   # ── Fingerprint Sensor ────────────────────────────────────────────────────
   services.fprintd.enable = true;
 
+  # The Goodix MOC sensor gets stuck in fprintd's "suspended" state across a
+  # lid-close suspend: the resume signal races with the lock screen grabbing the
+  # device, so every identify fails instantly with "Cannot run while suspended"
+  # (looks like a spurious read with no finger on the sensor). Forcing fprintd to
+  # restart on resume clears the stuck state. try-restart is a no-op when fprintd
+  # has already deactivated (it is D-Bus activated), so there is nothing to clear.
+  powerManagement.resumeCommands = ''
+    ${pkgs.systemd}/bin/systemctl try-restart fprintd.service
+  '';
+
   # ── Fonts ──────────────────────────────────────────────────────────────────
   fonts.packages = with pkgs; [
     noto-fonts-color-emoji    # colour emoji (avoids □ boxes in browser/apps)

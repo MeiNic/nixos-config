@@ -12,6 +12,7 @@
     ./xdg-defaults.nix
     ./security-auth.nix
     ./eduroam.nix
+    ./affinity.nix
   ];
 
   programs.nix-ld.enable = true;
