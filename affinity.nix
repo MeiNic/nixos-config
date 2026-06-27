@@ -22,10 +22,7 @@
 { pkgs, ... }:
 
 let
-  # Classic multilib build (native 32-bit), not the wow64-only build: winetricks
-  # installs 32-bit redists (e.g. vc_redist.x86) that stall on the wow64 build
-  # with "start_rpcss Failed to start RpcSs service". 11.0 ≥ 11 → no wintypes shim.
-  wine = pkgs.wineWowPackages.stable;
+  wine = pkgs.wineWow64Packages.stable;
 
   # Tools winetricks shells out to, pinned so the wrappers don't depend on PATH.
   runtimeDeps = [ wine pkgs.winetricks pkgs.curl pkgs.cabextract pkgs.p7zip ];

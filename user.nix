@@ -55,8 +55,16 @@
       gimp
       vlc
       handbrake
-      kdePackages.ark      # archive manager (zip, tar, 7z, rar)
-      kdePackages.gwenview
+      kdePackages.ark              # archive manager (zip, tar, 7z, rar)
+      kdePackages.gwenview         # image viewer
+      kdePackages.kcalc            # calculator
+      kdePackages.konsole          # terminal emulator
+      kdePackages.kate             # text editor
+      kdePackages.spectacle        # screenshot tool
+      kdePackages.okular           # document / PDF viewer
+      kdePackages.plasma-systemmonitor  # system monitor
+      kdePackages.filelight        # disk usage analyzer
+      kdePackages.kfind            # file search
       joplin-desktop     # Note-App
       joplin-cli
 

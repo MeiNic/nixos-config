@@ -129,6 +129,10 @@ in
     options cfg80211 ieee80211_regdom=DE
   '';
 
+  # ── Logitech Peripherals ───────────────────────────────────────────────────
+  hardware.logitech.wireless.enable         = true;  # udev rules for Unifying/Bolt receivers
+  hardware.logitech.wireless.enableGraphical = true;  # auto-start Solaar in tray
+
   # ── Bluetooth ──────────────────────────────────────────────────────────────
   hardware.bluetooth.enable      = true;
   hardware.bluetooth.powerOnBoot = true;
