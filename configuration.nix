@@ -13,9 +13,27 @@
     ./security-auth.nix
     ./eduroam.nix
     ./affinity.nix
+    ./rclone-onedrive.nix
   ];
 
   programs.nix-ld.enable = true;
+
+  # ── Overlays ───────────────────────────────────────────────────────────────
+  # paho-mqtt 2.1.0's test suite is flaky/broken inside the Nix build sandbox
+  # (ConnectionResetError + callback-ordering assertion failures), blocking
+  # borgmatic -> apprise -> paho-mqtt. Known upstream issue, no fix yet:
+  # https://discourse.nixos.org/t/unable-to-upgrade-to-25-05-because-paho-mqtt/64709
+  nixpkgs.overlays = [
+    (final: prev: {
+      python3 = prev.python3.override {
+        packageOverrides = pyFinal: pyPrev: {
+          paho-mqtt = pyPrev.paho-mqtt.overridePythonAttrs (_: {
+            doCheck = false;
+          });
+        };
+      };
+    })
+  ];
 
   # ── Networking ─────────────────────────────────────────────────────────────
   networking.hostName              = "nixos";
@@ -33,6 +51,10 @@
     vim
     wget
   ];
+
+  # ── Sudo Configuration ────────────────────────────────────────────────────────
+  security.sudo.enable = true;
+  security.sudo.execWheelOnly = false;
 
   # Only nixos-rebuild still needs sudo – keep that NOPASSWD rule.
   security.sudo.extraRules = [

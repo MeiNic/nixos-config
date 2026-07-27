@@ -40,7 +40,16 @@
   ];
 
   # ── Fingerprint Sensor ────────────────────────────────────────────────────
-  services.fprintd.enable = true;
+  # We deliberately do NOT use `services.fprintd.enable`, because that flips
+  # NixOS's per-service `fprintAuth` default to true — adding the fingerprint as
+  # a *sole* auth factor to sudo, login, polkit, sshd, etc. Our security model
+  # (security-auth.nix) permits the fingerprint only as the mandatory 2nd factor
+  # at the KDE lock screen, never on its own. So we provision just the daemon
+  # (identical to what `enable` does) and leave the global `fprintAuth` at false.
+  systemd.packages       = [ pkgs.fprintd ];
+  services.dbus.packages = [ pkgs.fprintd ];
+  # fprintd CLI tools (fprintd-enroll/-list/-verify) are added to
+  # environment.systemPackages below.
 
   # The Goodix MOC sensor gets stuck in fprintd's "suspended" state across a
   # lid-close suspend: the resume signal races with the lock screen grabbing the
@@ -62,5 +71,6 @@
   # ── System Packages (desktop-related) ─────────────────────────────────────
   environment.systemPackages = with pkgs; [
     pavucontrol # graphical mixer: route apps to different audio outputs
+    fprintd     # fingerprint daemon + CLI (enroll/list/verify); see note above
   ];
 }

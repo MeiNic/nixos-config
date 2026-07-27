@@ -30,6 +30,7 @@
       go
       jdk21
       nodejs
+      pnpm
       python3
       rustup
       gcc
