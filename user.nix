@@ -26,7 +26,6 @@
       # ── Development ─────────────────────────────────────────────────────
       gh                 # GitHub CLI
       act                # Run GitHub Actions locally
-      vscode
       go
       jdk21
       nodejs
@@ -38,10 +37,6 @@
       flutter
       android-studio
       android-tools
-      jetbrains.goland
-      jetbrains.idea
-      jetbrains.webstorm
-      jetbrains.rust-rover
 
       # ── Security & Crypto ───────────────────────────────────────────────
       keepassxc

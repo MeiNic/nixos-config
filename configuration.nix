@@ -14,6 +14,7 @@
     ./eduroam.nix
     ./affinity.nix
     ./rclone-onedrive.nix
+    ./development.nix
   ];
 
   programs.nix-ld.enable = true;
