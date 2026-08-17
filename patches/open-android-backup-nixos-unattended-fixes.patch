@@ -1,0 +1,75 @@
+--- a/functions/backup_func.sh
++++ b/functions/backup_func.sh
+@@ -45,7 +45,13 @@
+   unset archive_path
+   done
+ 
+-  # Ask the user what data to backup
++  # Ask the user what data to backup.
++  # NixOS packaging note: skipped entirely when backup_apps/backup_storage/backup_contacts
++  # are all pre-set (e.g. via unattended mode env vars) - matches the "-v" guard idiom this
++  # script already uses for mode/export_method/selected_action/etc. Upstream's checklist below
++  # has no such guard as of this writing, which would otherwise block forever on whiptail with
++  # no controlling TTY when run from a systemd service.
++  if [ ! -v backup_apps ] || [ ! -v backup_storage ] || [ ! -v backup_contacts ]; then
+   selected_items=$(whiptail --title "Backup data" --checklist "Select the categories of data to backup." 20 60 3 \
+     "Applications" "Installed apps" ON \
+     "Storage" "Photos, downloads, other files" ON \
+@@ -64,13 +70,19 @@
+         ;;
+     esac
+   done
++  fi
+ 
+   # Ensure that there's enough space in the directory according to what is backed up
+   cecho "Estimating backup size, please wait..."
+ 
+   local estimated_size
+-  enough_free_space "$archive_path" estimated_size
+-  local fs_status=$?
++  # NixOS packaging note: enough_free_space's non-zero return, called bare
++  # like this, trips `set -e` and kills the whole script immediately - the
++  # fs_status/if-block below meant to print a friendly "not enough space"
++  # message was dead code, silently replaced by a bare exit 1 with no
++  # explanation. `|| fs_status=$?` keeps the failure path reachable.
++  local fs_status=0
++  enough_free_space "$archive_path" estimated_size || fs_status=$?
+   local bkp_size_mb=$(echo "scale=2; $estimated_size/1024" | bc)
+ 
+   if [ $fs_status -ne 0 ]; then
+@@ -180,8 +192,13 @@
+   cecho "---"
+   sleep 4
+ 
+-  # Copy backup_archive_info.txt to the archive
++  # Copy backup_archive_info.txt to the archive.
++  # NixOS packaging note: this file is vendored into the read-only Nix store,
++  # so it (and the copy cp makes of it, which inherits source permissions for
++  # a newly-created destination) comes out mode 444 - the echo append right
++  # below would fail with "Permission denied" without restoring the write bit.
+   cp "$DIR/extras/backup_archive_info.txt" "$BACKUP_TMP_DIR/$PLEASE_READ_FILE"
++  chmod u+w "$BACKUP_TMP_DIR/$PLEASE_READ_FILE"
+   echo """
+ Backed up with settings:
+ backup_apps: $backup_apps
+@@ -211,7 +228,19 @@
+       get_password_input "Enter a password to encrypt the backup archive (input will be hidden):" archive_password
+     fi
+     declare backup_archive="$archive_path/$ARCHIVE_PREFIX-$(date +"$TIMESTAMP_FORMAT").$ARCHIVE_EXT"
+-    retry 5 7z a -p -mhe=on -mx=$compression_level "$backup_archive" "$BACKUP_TMP_DIR/*" < <(echo "$archive_password")
++    # NixOS packaging note: upstream fed the password to 7z's interactive
++    # double-prompt via `-p < <(echo "$archive_password")`. That pipe only
++    # ever contains one line, so the "verify password" prompt always reads
++    # EOF and attempt 1 always fails; retry then re-invokes 7z against the
++    # now-drained pipe, so attempt 2 gets EOF on BOTH prompts, which 7z
++    # accepts as a match - silently producing an archive encrypted with an
++    # EMPTY password instead of $archive_password. Confirmed 100%
++    # reproducible against this exact version. Passing -p<password> directly
++    # (7z's documented non-interactive syntax) sidesteps the prompt dance
++    # entirely. Trade-off: the password is then briefly visible in this
++    # process's argv (e.g. to other root-equivalent users via ps) instead of
++    # only over a pipe - an acceptable trade for actually being encrypted.
++    retry 5 7z a "-p$archive_password" -mhe=on -mx=$compression_level "$backup_archive" "$BACKUP_TMP_DIR/*"
+     # Immediately clear sensitive password data
+     unset archive_password
+   fi

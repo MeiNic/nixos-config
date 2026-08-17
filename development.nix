@@ -23,9 +23,9 @@
   };
 
 
-  programs.nix-ld.libraries = with pkgs.xorg; [
-    libX11
-    libXext
+  programs.nix-ld.libraries = with pkgs; [
+    libx11
+    libxext
     libxcb
   ];
 

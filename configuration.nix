@@ -9,6 +9,7 @@
     ./user.nix
     ./git-ssh.nix
     ./backup.nix
+    ./android-backup.nix
     ./xdg-defaults.nix
     ./security-auth.nix
     ./eduroam.nix
