@@ -16,8 +16,9 @@
 { config, pkgs, lib, ... }:
 
 let
-  archivePasswordFile = "/etc/nixos/secrets/android-backup.env";
-  sshKeyFile           = "/etc/nixos/secrets/hetzner-storagebox.key";
+  archivePasswordFile = config.sops.secrets.android-backup-env.path;
+  sshKeyFile           = config.sops.secrets.hetzner-storagebox-key.path;
+  # Not a secret (SSH host public key, for pinning only) - stays a plain file.
   knownHostsFile       = "/etc/nixos/secrets/hetzner-storagebox-known_hosts";
 
   storageBoxUser = "u643857-sub4";

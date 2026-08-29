@@ -1,4 +1,4 @@
-{ lib, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   pamLib = "${pkgs.pam}/lib/security";
@@ -55,7 +55,7 @@ in
   security.pam.u2f = {
     enable   = true;
     settings = {
-      authfile = "/etc/nixos/secrets/u2f-mappings";
+      authfile = config.sops.secrets.u2f-mappings.path;
       cue      = true;
     };
   };

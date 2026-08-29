@@ -1,0 +1,7 @@
+keys:
+  - &nico_laptop age1kjha8l6mzfjs5g3906tf26wcteej7e6st076dczsh5gx3sjc7c2sprlsrk
+creation_rules:
+  - path_regex: secrets\.yaml$
+    key_groups:
+      - age:
+          - *nico_laptop

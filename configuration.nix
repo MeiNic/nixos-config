@@ -3,6 +3,7 @@
 {
   imports = [
     ./hardware-configuration.nix  # auto-generated hardware scan
+    ./secrets.nix
     ./hardware.nix
     ./filesystems.nix
     ./desktop.nix
