@@ -107,6 +107,14 @@
   # Fish must be enabled system-wide so it is a valid login shell.
   programs.fish.enable = true;
 
+  # nico's actual login shell is fish (see users.users.nico.shell above), so
+  # the nixos-rebuild shortcut lives here as a fish abbreviation, not a zsh
+  # alias — it previously sat under programs.zsh.shellAliases and silently
+  # never fired.
+  programs.fish.shellAbbrs = {
+    nixos-rebuild = "sudo nixos-rebuild switch";
+  };
+
   # Fish plugins — added to environment.systemPackages so NixOS places them
   # on the vendor path that fish sources automatically on startup.
   environment.systemPackages = with pkgs; [
@@ -119,7 +127,4 @@
     autosuggestions.enable    = true;
     syntaxHighlighting.enable = true;
   };
-
-  # Wireshark with setcap so non-root users in the wireshark group can capture
-  programs.wireshark.enable = true;
 }

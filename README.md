@@ -12,7 +12,7 @@ Personal NixOS system configuration for a laptop with an Intel Core Ultra 155H (
 # Edit config and apply changes to the system
 cd ~/nixos-config
 git add -A && git commit -m "feat: describe change"
-sudo nixos-rebuild switch      # Apply changes (alias: nixos-rebuild)
+sudo nixos-rebuild switch      # Apply changes (fish abbreviation: nixos-rebuild)
 
 # Test changes without making them the default boot entry
 sudo nixos-rebuild test
@@ -36,7 +36,7 @@ sudo nixos-rebuild switch --upgrade
 
 # Clean up old generations and free disk space
 sudo nix-collect-garbage            # Remove unreachable packages
-sudo nix-collect-garbage -d         # Also remove older generations (keep last 3)
+sudo nix-collect-garbage -d         # Also remove older generations
 
 # Check current NixOS/Nix versions
 nixos-version
@@ -123,7 +123,9 @@ configuration.nix          ← Entry point (networking, locale, services, state)
 hardware.nix               ← Boot, LUKS/FIDO2, kernel, power management, Bluetooth, firmware
 filesystems.nix            ← btrfs subvolume mounts on the shared LUKS partition
 desktop.nix                ← Display manager (SDDM), KDE Plasma 6, audio (PipeWire), printing, input
-user.nix                   ← User account, packages, Fish shell, ADB, Wireshark
+user.nix                   ← User account, packages, Fish shell (+ nixos-rebuild abbreviation), ADB, Wireshark
+development.nix            ← VS Code (declarative extensions) + Android SDK/emulator env for Flutter
+rclone-onedrive.nix        ← rclone mounts for OneDrive & Hetzner Storage Box (systemd user services)
 git-ssh.nix                ← Git config, SSH key deployment (migrated from Windows)
 backup.nix                 ← btrbk snapshots + BorgBackup to USB drives
 android-backup.nix         ← Android phone → Hetzner Storage Box (open-android-backup + rclone SFTP)
@@ -137,13 +139,14 @@ secrets.nix                ← sops-nix wiring (age) - see § Secrets
 .sops.yaml                 ← sops creation rules (which age key encrypts secrets.yaml) - tracked in git
 secrets.yaml               ← Encrypted secrets (u2f-mappings, android-backup-env, hetzner-storagebox-key) - tracked in git
 
-secrets/
-  personal.nix             ← Git identity & SSH signing key (gitignored, fill from template)
+secrets/                   ← gitignored except *.template files
+  personal.nix             ← Git identity & SSH signing key
   personal.nix.template    ← Template for personal.nix
-  luks-uuids.nix.template  ← Template for sensitive LUKS UUIDs
-  eduroam.nix              ← eduroam identity & server pin (gitignored, fill from template)
+  luks-uuids.nix           ← Real LUKS/EFI UUIDs for the CachyOS dual-boot entry
+  luks-uuids.nix.template  ← Template for luks-uuids.nix
+  eduroam.nix              ← eduroam identity & server pin
   eduroam.nix.template     ← Template for eduroam.nix
-  hetzner-storagebox-known_hosts   ← Pinned SFTP host key, not secret, just not worth committing (gitignored, ssh-keyscan'd manually)
+  hetzner-storagebox-known_hosts          ← Pinned SFTP host key, not secret, just not worth committing (ssh-keyscan'd manually)
   hetzner-storagebox-known_hosts.template ← Instructions for generating the known_hosts file
 
 patches/
@@ -156,7 +159,7 @@ patches/
 
 The `@configs` btrfs subvolume is mounted at `~/nixos-config` (owned by `nico`), so all git operations work **without `sudo`**. `/etc/nixos` is a symlink pointing to `~/nixos-config`, which is re-created on every rebuild by an activation script.
 
-The `nixos-rebuild` alias is configured to run `sudo nixos-rebuild switch` automatically. `nico` has a `NOPASSWD` sudo rule specifically for `nixos-rebuild`, so the password prompt only appears for other sudo commands.
+The login shell is Fish, which has a `nixos-rebuild` abbreviation that expands to `sudo nixos-rebuild switch`. `nico` has a `NOPASSWD` sudo rule specifically for `nixos-rebuild`, so the password prompt only appears for other sudo commands.
 
 ---
 
@@ -177,7 +180,7 @@ The `nixos-rebuild` alias is configured to run `sudo nixos-rebuild switch` autom
 
 ### LUKS / Dual-boot Sensitive Values
 
-The CachyOS boot entry in `hardware.nix` contains placeholder values (`<EFI-TOKEN>`, `<CACHYOS-LUKS-UUID>`). Replace these with your own values from `blkid` output. These are intentionally **not** stored in git.
+The CachyOS boot entry in `hardware.nix` reads its UUIDs and EFI token from `secrets/luks-uuids.nix` (gitignored). Copy `secrets/luks-uuids.nix.template` to `secrets/luks-uuids.nix` and fill in your own values from `blkid` output.
 
 ---
 
@@ -247,8 +250,8 @@ xdg-mime query default application/pdf
 
 ## User Account (`user.nix`)
 
-**User:** `nico`  
-**Shell:** Fish (with pure prompt + autopair plugin)  
+**User:** `nico`
+**Shell:** Fish (with pure prompt + autopair plugin, and a `nixos-rebuild` abbreviation)
 **Groups:** `networkmanager`, `wheel`, `wireshark`, `adbusers`, `docker`, `vboxusers`
 
 ### Installed Packages (selection)
@@ -257,7 +260,7 @@ xdg-mime query default application/pdf
 |---|---|
 | Communication | Thunderbird, Birdtray, Signal, ZapZap (WhatsApp), Discord |
 | Browsers | Brave, Google Chrome |
-| Development | VS Code, GitHub CLI, act, Go, JDK 21, Node.js, Python 3, Rust, Dart, Flutter, Android Studio, GoLand, IntelliJ IDEA, WebStorm, Rust-Rover, Zig |
+| Development | GitHub CLI, act, Go, JDK 21, Node.js, Python 3, Rust, Dart, Flutter, Android Studio, GoLand, IntelliJ IDEA, WebStorm, Rust-Rover, Zig |
 | Security | KeePassXC, Wireshark, Hashcat, Ripgrep |
 | Office / Productivity | LibreOffice, Draw.io, Evince, Anki, GIMP, VLC, Handbrake, Joplin (CLI + Desktop), LaTeX (texliveFull) |
 | System & KDE Tools | p7zip, smartmontools, hardinfo2, lm_sensors, dmidecode, Ark, Gwenview, KCalc, Konsole, Kate, Spectacle, Okular, Plasma System Monitor, Filelight, KFind |
@@ -267,7 +270,25 @@ xdg-mime query default application/pdf
 | Windows Compatibility | Wine (64-bit stable, for Affinity) |
 | Misc | AusweisApp, Solaar (Logitech), Proton Pass, Spotify, Teams for Linux, Vorta (BorgBackup GUI) |
 
+VS Code (with its full declarative extension set) and the Android SDK/emulator environment live in `development.nix` — see the Module Overview above.
+
 Additional system-level features: Docker (`virtualisation.docker`), Firefox (`programs.firefox`).
+
+> `vboxusers` is in the group list for when VirtualBox is needed, but `virtualisation.virtualbox.host.enable` is currently commented out in `configuration.nix` — the group alone doesn't install or enable anything.
+
+---
+
+## Development Tooling (`development.nix`)
+
+Declares VS Code with its full extension set (`programs.vscode.extensions`) so a fresh install reproduces the same editor without clicking through the marketplace, plus the Android SDK/emulator environment (`ANDROID_HOME`, `PATH` entries) so Flutter can target the emulator without opening Android Studio.
+
+A handful of marketplace extensions aren't packaged in nixpkgs' `vscode-extensions` set and need `code --install-extension <id>` by hand after a fresh install — see the comment block at the top of the file for the current list.
+
+---
+
+## Cloud Storage Mounts (`rclone-onedrive.nix`)
+
+Mounts rclone remotes as systemd **user** services (`rclone mount ... --daemon`), currently `onedrive` → `~/OneDrive` and `storagebox` → `~/StorageBox`. Requires a one-time `rclone config` per remote (not managed by Nix). To add another mount, add an entry to the `remotes` list in the file.
 
 ---
 
@@ -322,7 +343,7 @@ A two-layer backup strategy:
 ### Layer 3 — BorgBackup to USB Drive B (manual)
 
 - **No timer** — triggered manually only
-- ```bash
+  ```bash
   sudo systemctl start borgbackup-job-usb-manual
   ```
 
@@ -353,6 +374,8 @@ echo "your-strong-passphrase" | sudo tee /etc/nixos/secrets/borg-passphrase
 sudo chmod 600 /etc/nixos/secrets/borg-passphrase
 ```
 
+> **Not currently set up on this machine** — this USB-drive layer is superseded by a separate Vorta-managed Borg backup outside this config. `secrets/borg-passphrase` doesn't exist, so `borgbackup-job-usb-a`/`-manual` will fail until it's created per the steps above.
+
 ### Useful Backup Commands
 
 ```bash
@@ -373,9 +396,9 @@ sudo BORG_PASSPHRASE=$(cat /etc/nixos/secrets/borg-passphrase) \
 
 ## Android Backup (`android-backup.nix`)
 
-Backs up the phone (unrooted, no `adb backup`) to a Hetzner Storage Box
+Backs up the phone (unrooted, no `adb backup`) to a Hetzner Storage Box.
 
-**Pipeline:** [open-android-backup](https://github.com/mrrfv/open-android-backup) (vendored via `fetchFromGitHub`, pinned to `v1.2.3`) creates a password-encrypted, 7z-compressed archive on this machine (APKs, internal storage, and — manual run only — contacts as vCards) → `rclone` uploads it to the Storage Box over SFTP → the local copy is deleted after the upland and the remote is pruned to the last 5 archives.
+**Pipeline:** [open-android-backup](https://github.com/mrrfv/open-android-backup) (vendored via `fetchFromGitHub`, pinned to `v1.2.3`) creates a password-encrypted, 7z-compressed archive on this machine (APKs, internal storage, and — manual run only — contacts as vCards) → `rclone` uploads it to the Storage Box over SFTP → the local copy is deleted after the upload and the remote is pruned to the last 5 archives.
 
 ### Two services, because contacts need a human
 
@@ -388,11 +411,11 @@ Contacts aren't in the automatic run because open-android-backup's companion app
 
 ### The udev rule
 
-Matches the standard Android ADB USB interface (class `ff` / subclass `42` / protocol `01`) rather than a vendor ID, so it fires for any Android phone with USB debugging on
+Matches the standard Android ADB USB interface (class `ff` / subclass `42` / protocol `01`) rather than a vendor ID, so it fires for any Android phone with USB debugging on.
 
 ### Excluding photos
 
-`DCIM` and `Pictures` are dropped from the local staging area before compression via open-android-backup's supported `backup_hook` extension point (`use_hooks=yes` + a generated `hooks.sh`)
+`DCIM` and `Pictures` are dropped from the local staging area before compression via open-android-backup's supported `backup_hook` extension point (`use_hooks=yes` + a generated `hooks.sh`).
 
 ### Upstream patch
 
@@ -400,7 +423,7 @@ Matches the standard Android ADB USB interface (class `ff` / subclass `42` / pro
 
 1. **Whiptail checklist has no `-v` guard.** Unlike every other interactive prompt in `backup_func.sh`, the "what to back up" checklist has no guard for `backup_apps`/`backup_storage`/`backup_contacts` being pre-set — it would block forever on a TTY-less systemd service even with every documented unattended-mode env var set. Guarded it the same way the rest of the script is.
 2. **`PLEASE_READ.txt` fails to write.** `extras/backup_archive_info.txt` is vendored into the read-only Nix store, so `cp` (which carries over source permissions for a newly-created destination) leaves the staged copy mode 444. The following `echo >>` append then fails with "Permission denied." Restored the write bit right after the copy.
-3. **Archives were silently encrypted with an empty password (security-critical).** Upstream feeds `archive_password` to 7z's *interactive* double-prompt over a one-line stdin pipe (`-p < <(echo "$archive_password")`) silently producing an archive encrypted with an **empty password** instead of the real one. Switched to 7z's documented non-interactive `-p<password>` flag, which sidesteps the prompt entirely. Trade-off: the password is then briefly visible in that process's argv (e.g. to other root-equivalent users via `ps`) instead of only over a pipe — an acceptable trade for the archive actually being encrypted with the intended password. Re-verified across repeated runs after the fix: correct password required, empty password rejected.
+3. **Archives were silently encrypted with an empty password (security-critical).** Upstream feeds `archive_password` to 7z's *interactive* double-prompt over a one-line stdin pipe (`-p < <(echo "$archive_password")`), silently producing an archive encrypted with an **empty password** instead of the real one. Switched to 7z's documented non-interactive `-p<password>` flag, which sidesteps the prompt entirely. Trade-off: the password is then briefly visible in that process's argv (e.g. to other root-equivalent users via `ps`) instead of only over a pipe — an acceptable trade for the archive actually being encrypted with the intended password. Re-verified across repeated runs after the fix: correct password required, empty password rejected.
 
 ### Hetzner Storage Box (one time)
 
@@ -503,7 +526,7 @@ The `secrets/` directory is gitignored (except `*.template` files). These can't 
 | `personal.nix` | Git name, email, SSH signing public key (loaded by `git-ssh.nix`) — not sensitive, and baked into a generated `/etc/ssh/allowed_signers` at build time |
 | `personal.nix.template` | Template — copy to `personal.nix` and fill in your values |
 | `luks-uuids.nix` | Disk UUIDs for the CachyOS dual-boot entry (loaded by `hardware.nix`) — needed for the bootloader config, long before sops could decrypt anything |
-| `luks-uuids.nix.template` | Template for sensitive LUKS UUIDs |
+| `luks-uuids.nix.template` | Template for `luks-uuids.nix` |
 | `eduroam.nix` | eduroam EAP identity and home RADIUS server pin (loaded by `eduroam.nix`) — spliced into a NetworkManager profile at build time |
 | `eduroam.nix.template` | Template — copy to `eduroam.nix` and fill in your values |
 | `hetzner-storagebox-known_hosts` | Pinned SFTP host key for the Storage Box — not actually secret (SSH host keys are public; pinning is for integrity, not confidentiality), just never got promoted out of this directory |

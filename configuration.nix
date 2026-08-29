@@ -72,11 +72,6 @@
     }
   ];
 
-  # Shell aliases
-  programs.zsh.shellAliases = {
-    nixos-rebuild = "sudo nixos-rebuild switch";
-  };
-
   # ── Core Programs ──────────────────────────────────────────────────────────
   programs.firefox.enable = true;
 
