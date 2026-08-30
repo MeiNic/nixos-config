@@ -7,7 +7,7 @@ let
   mkBtrfs = subvol: {
     device        = "/dev/mapper/shared";
     fsType        = "btrfs";
-    options       = [ "subvol=${subvol}" "compress=zstd" "noatime" "x-systemd.device-timeout=infinity" ];  # 26.05: LUKS+FIDO2 needs explicit timeout
+    options       = [ "subvol=${subvol}" "compress=zstd" "noatime" "x-systemd.device-timeout=infinity" ];  # LUKS+FIDO2 needs an explicit timeout
     neededForBoot = true;
   };
 in

@@ -30,9 +30,8 @@
   ];
 
   # ── VSCode ───────────────────────────────────────────────────────────────────
-  # Replaces the plain `vscode` package that used to live in user.nix — keep
-  # them from both being installed, or the plain one (earlier on PATH) would
-  # shadow this extension-bundled one.
+  # Only VS Code package in this config — do not also add the plain `vscode`
+  # package elsewhere, or it would shadow this extension-bundled one on PATH.
   #
   # Extension set mirrors what was actually installed via the marketplace
   # (`code --list-extensions`) on 2026-08-08. The following are NOT packaged

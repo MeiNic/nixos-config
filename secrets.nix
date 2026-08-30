@@ -1,12 +1,11 @@
 # =============================================================================
 # Secrets management: sops-nix (age)
 # =============================================================================
-# Replaces the old ad-hoc mix of plain-text runtime files under secrets/ for
-# actual secrets (passphrases, keys) with one encrypted, git-tracked file:
+# Actual secrets (passphrases, keys) live encrypted in one git-tracked file,
 # secrets.yaml. Values needed at Nix eval time (personal.nix, eduroam.nix,
 # luks-uuids.nix - none of them true secrets, or needed before sops can even
-# run) stay as plain imported files; sops-nix only produces runtime file
-# paths (/run/secrets/*), decrypted during system activation.
+# run) stay as plain imported files under secrets/; sops-nix only produces
+# runtime file paths (/run/secrets/*), decrypted during system activation.
 { config, pkgs, lib, ... }:
 
 let

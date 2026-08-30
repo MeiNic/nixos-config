@@ -10,7 +10,7 @@
     description  = "nico";
     initialHashedPassword = "$6$dWIUHsKbON.yT1am$tQOmnIRxNZu6xEMRT2R5QdsCUG8Eo2kcRZVjyG.vdoKNjVz9wJFa3GCyWUPZFxswsQ0V9p1rV1as/4yalBMa8/";
     shell        = pkgs.fish;
-    extraGroups  = [ "networkmanager" "wheel" "wireshark" "adbusers" "docker" "vboxusers" ];
+    extraGroups  = [ "networkmanager" "wheel" "wireshark" "adbusers" "docker"];
 
     packages = with pkgs; [
       # ── Communication ───────────────────────────────────────────────────
@@ -37,12 +37,13 @@
       flutter
       android-studio
       android-tools
+      tokei
+      claude-code        # Claude CLI
 
       # ── Security & Crypto ───────────────────────────────────────────────
       keepassxc
 
       # ── Productivity & Office ───────────────────────────────────────────
-      teams-for-linux
       libreoffice-fresh
       texliveFull        # LaTeX with full package collection
       drawio
@@ -69,7 +70,6 @@
 
       # ── System & Utilities ──────────────────────────────────────────────
       p7zip
-      smartmontools
       hardinfo2
       lm_sensors
       dmidecode
@@ -77,13 +77,6 @@
 
       # ── AI / ML ─────────────────────────────────────────────────────────
       ollama
-      open-webui
-
-      # ── Media ───────────────────────────────────────────────────────────
-      haruna             # KDE video player with playlist/chapter UI
-
-      # ── Security ────────────────────────────────────────────────────────
-      hashcat            # GPU-accelerated password recovery / hash cracking
 
       # ── CLI Utilities ───────────────────────────────────────────────────
       ripgrep            # rg: fast grep replacement used by editors/scripts
@@ -107,10 +100,8 @@
   # Fish must be enabled system-wide so it is a valid login shell.
   programs.fish.enable = true;
 
-  # nico's actual login shell is fish (see users.users.nico.shell above), so
-  # the nixos-rebuild shortcut lives here as a fish abbreviation, not a zsh
-  # alias — it previously sat under programs.zsh.shellAliases and silently
-  # never fired.
+  # nico's login shell is fish (see users.users.nico.shell above), so the
+  # nixos-rebuild shortcut is a fish abbreviation.
   programs.fish.shellAbbrs = {
     nixos-rebuild = "sudo nixos-rebuild switch";
   };
@@ -118,13 +109,12 @@
   # Fish plugins — added to environment.systemPackages so NixOS places them
   # on the vendor path that fish sources automatically on startup.
   environment.systemPackages = with pkgs; [
-    fishPlugins.pure     # minimal git-aware prompt (matches existing fish_variables)
-    fishPlugins.autopair # auto-close brackets/quotes
+    fishPlugins.pure               # minimal git-aware prompt (matches existing fish_variables)
+    fishPlugins.autopair           # auto-close brackets/quotes
+    fishPlugins.fzf-fish           # fuzzy search history/files/git/processes (Ctrl+R, Ctrl+T)
+    fishPlugins.done               # desktop notification when a long command finishes
+    fishPlugins.fish-you-should-use # nudges you toward an existing abbreviation/alias
+    fishPlugins.sponge             # scrubs failed commands out of history
+    fzf                            # backend fzf-fish shells out to
   ];
-
-  programs.zsh = {
-    enable                    = true;
-    autosuggestions.enable    = true;
-    syntaxHighlighting.enable = true;
-  };
 }

@@ -43,7 +43,7 @@
   networking.networkmanager.enable  = true;
   networking.networkmanager.plugins = [ pkgs.networkmanager-vpnc pkgs.networkmanager-openconnect ];
   networking.firewall.enable                    = true;
-  networking.firewall.logRefusedConnections     = true;  # 26.05: default changed to false
+  networking.firewall.logRefusedConnections     = true;
 
   # ── Locale & Time ──────────────────────────────────────────────────────────
   time.timeZone      = "Europe/Berlin";
@@ -99,11 +99,7 @@
 
 
   # ── Virtualisation ─────────────────────────────────────────────────────────
-  # virtualisation.virtualbox.host.enable = true;
-  # virtualisation.virtualbox.host.enableExtensionPack = true;
-
-
-  # Enable Docker daemon and let the container live on the data vg
+  # Docker's data-root lives on the data vg, not the root filesystem.
   virtualisation.docker = {
     enable = true;
     autoPrune.enable = true;

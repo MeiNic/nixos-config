@@ -172,7 +172,7 @@ The login shell is Fish, which has a `nixos-rebuild` abbreviation that expands t
 | LUKS encryption | Two devices: `crypt_nixos` (NixOS root) and `shared` (shared partition) |
 | FIDO2 unlock | YubiKey auto-detected for both LUKS devices at boot |
 | Kernel | `linuxPackages_latest` |
-| Power tuning | `auto-cpufreq` (replaces `power-profiles-daemon`), `thermald`, `powertop --auto-tune` |
+| Power tuning | `power-profiles-daemon` (drives KDE's power-profile widget), `thermald`, `powertop --auto-tune` |
 | Suspend | Kernel params tuned for deep C-states (`nvme.noacpi=1`, `pcie_aspm=powersupersave`, etc.) |
 | Bluetooth | Enabled with experimental features |
 | Firmware updates | `fwupd` enabled |

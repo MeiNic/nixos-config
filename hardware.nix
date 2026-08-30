@@ -142,15 +142,12 @@ in
   hardware.enableAllFirmware = true;
   services.fwupd.enable      = true;
 
-  # ── Intel Microcode (pinned forward to 20260812) ───────────────────────────
-  # The 26.05.7526 channel bump (generation 121) pulled in microcode 20260811,
-  # which raised this CPU's blob (MTL/06-aa-04, the Core Ultra 155H) from rev
-  # 0x28 to 0x2a. That revision wedges the machine at reset: black screen, no
-  # kernel output at all, because the early loader runs before the console is
-  # up. Intel pulled it a day later in 20260812 — "Removed MTL/06-aa-04/c0 due
-  # to functional issues observed when loading the MCU in some platforms" —
-  # restoring the byte-identical 0x28 blob while keeping the other CPUs'
-  # updates. Drop this pin once nixpkgs ships 20260812 or newer.
+  # ── Intel Microcode (pinned to 20260812) ────────────────────────────────────
+  # nixpkgs' microcode-intel can regress ahead of this pin: 20260811 raised
+  # this CPU's blob (MTL/06-aa-04, Core Ultra 155H) to a revision that wedges
+  # the machine at reset (black screen, no kernel output — the early loader
+  # runs before the console is up). 20260812 is Intel's own fix, confirmed
+  # working. Drop this override once nixpkgs ships 20260812 or newer.
   hardware.cpu.intel.microcodePackage = pkgs.microcode-intel.overrideAttrs (_: rec {
     version = "20260812";
     src = pkgs.fetchFromGitHub {
@@ -170,9 +167,6 @@ in
 
   # ── Thunderbolt ────────────────────────────────────────────────────────────
   services.hardware.bolt.enable = true;   # device authorization / security daemon
-
-  # Grants userspace access to the ACPI backlight interface for brightness keys
-  hardware.acpilight.enable = true;
 
   # ── YubiKey / Smart-Card ───────────────────────────────────────────────────
   services.pcscd.enable = true;

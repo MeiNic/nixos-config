@@ -25,11 +25,7 @@
     alsa.support32Bit = true;
     pulse.enable      = true;
     wireplumber.enable = true;
-    # jack.enable = true;
   };
-
-  # ── Process Scheduler (CPU/IO priority) ───────────────────────────────────
-  # services.ananicy-cpp.enable = true;
 
   # ── Printing ───────────────────────────────────────────────────────────────
   services.printing.enable = true;
