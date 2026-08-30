@@ -6,10 +6,7 @@
 let
   luksUuidsPath = ./secrets/luks-uuids.nix;
   luksUuids = if builtins.pathExists luksUuidsPath then import luksUuidsPath else {
-    cryptNixosUuid  = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
-    sharedUuid      = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
-    cachyosLuksUuid = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
-    efiToken        = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+    sharedUuid = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
   };
 in
 
@@ -18,35 +15,6 @@ in
   boot.loader.systemd-boot.enable      = true;
   boot.loader.efi.canTouchEfiVariables = true;
   boot.initrd.systemd.enable           = true;   # modern boot system for FIDO2
-
-  # CachyOS dual-boot entry
-  # ── SENSITIVE: replace the EFI token path and LUKS UUID below with your ──
-  # ── own values (found in hardware-configuration.nix / blkid output).    ──
-  boot.loader.systemd-boot.extraEntries = {
-    "cachyos.conf" = ''
-      title    CachyOS
-      linux    /${luksUuids.efiToken}/linux-cachyos/vmlinuz-linux-cachyos
-      initrd   /intel-ucode.img
-      initrd   /${luksUuids.efiToken}/linux-cachyos/initramfs-linux-cachyos
-      options  rd.luks.uuid=${luksUuids.cachyosLuksUuid} root=/dev/mapper/luks-${luksUuids.cachyosLuksUuid} rootflags=subvol=/@ rw quiet nowatchdog splash
-    '';
-    # Alternative entry using cryptdevice (Arch-style mkinitcpio) as a backup
-    # if dracut parameters fail.
-    "cachyos-cryptdevice.conf" = ''
-      title    CachyOS (mkinitcpio style)
-      linux    /${luksUuids.efiToken}/linux-cachyos/vmlinuz-linux-cachyos
-      initrd   /intel-ucode.img
-      initrd   /${luksUuids.efiToken}/linux-cachyos/initramfs-linux-cachyos
-      options  cryptdevice=UUID=${luksUuids.cachyosLuksUuid}:luks-${luksUuids.cachyosLuksUuid} root=/dev/mapper/luks-${luksUuids.cachyosLuksUuid} rootflags=subvol=/@ rw quiet splash
-    '';
-
-    # Chainload CachyOS's own EFI loader (fallback path; adjust if it lives
-    # elsewhere under the token directory).
-    "cachyos-chain.conf" = ''
-      title    CachyOS (chainload)
-      efi      /${luksUuids.efiToken}/EFI/BOOT/BOOTX64.EFI
-    '';
-  };
 
   # ── LUKS Encryption (FIDO2 / YubiKey unlock) ──────────────────────────────
   # crypt_nixos device UUID comes from hardware-configuration.nix (auto-generated).

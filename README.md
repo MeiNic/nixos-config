@@ -1,6 +1,6 @@
 # NixOS Configuration
 
-Personal NixOS system configuration for a laptop with an Intel Core Ultra 155H (Meteor Lake), running **KDE Plasma 6** with dual-boot support for CachyOS.
+Personal NixOS system configuration for a laptop with an Intel Core Ultra 155H (Meteor Lake), running **KDE Plasma 6**.
 
 ---
 
@@ -142,7 +142,7 @@ secrets.yaml               ← Encrypted secrets (u2f-mappings, android-backup-e
 secrets/                   ← gitignored except *.template files
   personal.nix             ← Git identity & SSH signing key
   personal.nix.template    ← Template for personal.nix
-  luks-uuids.nix           ← Real LUKS/EFI UUIDs for the CachyOS dual-boot entry
+  luks-uuids.nix           ← LUKS UUID of the shared partition
   luks-uuids.nix.template  ← Template for luks-uuids.nix
   eduroam.nix              ← eduroam identity & server pin
   eduroam.nix.template     ← Template for eduroam.nix
@@ -168,7 +168,6 @@ The login shell is Fish, which has a `nixos-rebuild` abbreviation that expands t
 | Feature | Detail |
 |---|---|
 | Bootloader | `systemd-boot` with EFI |
-| Dual-boot | CachyOS entry via `extraEntries` in systemd-boot |
 | LUKS encryption | Two devices: `crypt_nixos` (NixOS root) and `shared` (shared partition) |
 | FIDO2 unlock | YubiKey auto-detected for both LUKS devices at boot |
 | Kernel | `linuxPackages_latest` |
@@ -178,9 +177,9 @@ The login shell is Fish, which has a `nixos-rebuild` abbreviation that expands t
 | Firmware updates | `fwupd` enabled |
 | YubiKey / Smart-card | `pcscd` enabled |
 
-### LUKS / Dual-boot Sensitive Values
+### LUKS Sensitive Values
 
-The CachyOS boot entry in `hardware.nix` reads its UUIDs and EFI token from `secrets/luks-uuids.nix` (gitignored). Copy `secrets/luks-uuids.nix.template` to `secrets/luks-uuids.nix` and fill in your own values from `blkid` output.
+`hardware.nix` reads the `shared` partition's LUKS UUID from `secrets/luks-uuids.nix` (gitignored). Copy `secrets/luks-uuids.nix.template` to `secrets/luks-uuids.nix` and fill in your own value from `blkid` output. The `crypt_nixos` UUID is not kept here — it comes from the auto-generated `hardware-configuration.nix`.
 
 ---
 
@@ -525,7 +524,7 @@ The `secrets/` directory is gitignored (except `*.template` files). These can't 
 |---|---|
 | `personal.nix` | Git name, email, SSH signing public key (loaded by `git-ssh.nix`) — not sensitive, and baked into a generated `/etc/ssh/allowed_signers` at build time |
 | `personal.nix.template` | Template — copy to `personal.nix` and fill in your values |
-| `luks-uuids.nix` | Disk UUIDs for the CachyOS dual-boot entry (loaded by `hardware.nix`) — needed for the bootloader config, long before sops could decrypt anything |
+| `luks-uuids.nix` | LUKS UUID of the `shared` partition (loaded by `hardware.nix`) — needed in initrd, long before sops could decrypt anything |
 | `luks-uuids.nix.template` | Template for `luks-uuids.nix` |
 | `eduroam.nix` | eduroam EAP identity and home RADIUS server pin (loaded by `eduroam.nix`) — spliced into a NetworkManager profile at build time |
 | `eduroam.nix.template` | Template — copy to `eduroam.nix` and fill in your values |
