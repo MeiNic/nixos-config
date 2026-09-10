@@ -143,6 +143,9 @@ in
   services.udev.extraRules = ''
     # Ethernet expansion card (RTL8156): set USB autosuspend to 20 s
     ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0bda", ATTR{idProduct}=="8156", ATTR{power/autosuspend}="20"
+
+    # spd5118 (DDR5 RAM SPD hub: temperature + EEPROM) fails to resume after deep sleep
+    ACTION=="add", SUBSYSTEM=="i2c", ATTR{name}=="spd5118", ATTR{power/async}="disabled"
   '';
 
   # ── System Packages (hardware-related) ─────────────────────────────────────

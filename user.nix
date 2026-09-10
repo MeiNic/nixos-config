@@ -24,8 +24,8 @@
       google-chrome
 
       # ── Development ─────────────────────────────────────────────────────
-      gh                 # GitHub CLI
-      act                # Run GitHub Actions locally
+      gh
+      act
       go
       jdk21
       nodejs
@@ -38,7 +38,12 @@
       android-studio
       android-tools
       tokei
-      claude-code        # Claude CLI
+      cmake
+      ninja
+      pkg-config
+      gtk3
+      clang
+      claude-code
 
       # ── Security & Crypto ───────────────────────────────────────────────
       keepassxc
