@@ -56,22 +56,26 @@ let
     transaction_log         /var/log/btrbk.log
     snapshot_dir            ${snapshotMount}
 
-    # Root subvolume (on crypt_nixos)
-    volume /
+    # Subvolumes on the shared partition (each already mounted individually;
+    # "volume" must be a mounted directory, not the raw device node)
+    volume /home
       subvolume .
-        snapshot_name root
-
-    # Subvolumes on the shared partition
-    volume ${sharedDevice}
-      subvolume @home
         snapshot_name home
-      subvolume @configs
+
+    volume /etc/nixos
+      subvolume .
         snapshot_name configs
-      subvolume @nix
+
+    volume /nix
+      subvolume .
         snapshot_name nix
-      subvolume @docker
+
+    volume /var/lib/docker
+      subvolume .
         snapshot_name docker
-      subvolume @flatpak
+
+    volume /var/lib/flatpak
+      subvolume .
         snapshot_name flatpak
   '';
 
