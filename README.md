@@ -275,6 +275,47 @@ Additional system-level features: Docker (`virtualisation.docker`), Firefox (`pr
 
 > `vboxusers` is in the group list for when VirtualBox is needed, but `virtualisation.virtualbox.host.enable` is currently commented out in `configuration.nix` — the group alone doesn't install or enable anything.
 
+### Signal Desktop — Taskbar Badge Count
+
+Signal's unread-message badge doesn't show on the KDE Plasma taskbar icon out of the box. Electron implements Linux badge counts by `dlopen()`-ing `libunity.so.9` at runtime to emit a `com.canonical.Unity.LauncherEntry` D-Bus signal, which is what Plasma's Task Manager listens for — but nixpkgs' `signal-desktop`/Electron wrapper never puts `libunity` on `LD_LIBRARY_PATH`, so the `dlopen` silently fails and Signal never emits anything. Confirmed with:
+
+```bash
+dbus-monitor --session "interface='com.canonical.Unity.LauncherEntry'"
+```
+
+— no signal fired at all even while a real message arrived, until the fix below was applied (after which an `Update` signal appears with `count` / `count-visible` set, `app_uri` = `application://signal.desktop`, matching the installed `.desktop` file's id).
+
+**Fix:** a per-user XDG desktop-file override at `~/.local/share/applications/signal.desktop` (XDG user overrides always take priority over the system one with the same filename), launching Signal with `LD_LIBRARY_PATH` pointing at `pkgs.libunity`'s `lib` directory. Full file content (only `Exec=` differs from nixpkgs' stock `signal.desktop`):
+
+```ini
+[Desktop Entry]
+Categories=Network;InstantMessaging;Chat
+Comment=Private messaging from your desktop
+Exec=env LD_LIBRARY_PATH=<libunity-store-path>/lib signal-desktop %U
+Icon=signal-desktop
+MimeType=x-scheme-handler/sgnl;x-scheme-handler/signalcaptcha
+Name=Signal
+StartupWMClass=signal
+Terminal=false
+Type=Application
+Version=1.5
+```
+
+Find the current `<libunity-store-path>` with:
+
+```bash
+nix-instantiate --eval -E '(import <nixpkgs> {}).libunity.outPath'
+```
+
+After creating/editing the file, refresh the caches so Plasma picks it up without a reboot, then fully quit (tray icon → Quit, not just close the window) and relaunch Signal from the app launcher:
+
+```bash
+update-desktop-database ~/.local/share/applications
+kbuildsycoca6 --noincremental   # kbuildsycoca5 on older Plasma
+```
+
+This is deliberately *not* wired up declaratively (no nixpkgs overlay in `configuration.nix`, no rebuild needed) — it's a one-off manual fix, applied outside git. Caveat: `libunity` isn't in `user.nix`'s package list, so nothing pins it as a Nix GC root; if it vanishes after a `nix-collect-garbage`, re-run the `nix-instantiate` command above for its new store path and update the `Exec=` line.
+
 ---
 
 ## Development Tooling (`development.nix`)

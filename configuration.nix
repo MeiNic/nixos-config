@@ -1,5 +1,22 @@
 { pkgs, ... }:
 
+let
+  # Pin for the joplin-desktop overlay below: nixos-26.05 (stable) doesn't
+  # backport app version bumps, only security/critical fixes, so it stays on
+  # whatever version was current at branch-off (3.5.13). Bump this commit
+  # periodically to track newer nixos-unstable releases of Joplin.
+  unstableForJoplin = builtins.fetchTarball {
+    url    = "https://github.com/NixOS/nixpkgs/archive/20b1ddd1aa5ace70c9468305030aa4f9ef79671b.tar.gz";
+    sha256 = "17c8rash8751zwzq426b54754znickr50nwd4ziq4pklm0pid3h7";
+  };
+  # For claude-code (CLI + VS Code extension) below: tracks whatever is
+  # current on the nixos-unstable channel, unlike unstableForJoplin's fixed
+  # commit pin. Requires the channel to actually be added on this machine:
+  #   sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
+  #   sudo nix-channel --update
+  # then `sudo nix-channel --update` again whenever a newer claude-code is wanted.
+  nixosUnstable = <nixos-unstable>;
+in
 {
   imports = [
     ./hardware-configuration.nix  # auto-generated hardware scan
@@ -36,12 +53,34 @@
         };
       };
     })
+    # joplin-desktop: stable channel is stuck on 3.5.13 (see unstableForJoplin
+    # above); pull just this package from nixos-unstable instead.
+    (final: prev: {
+      joplin-desktop = (import unstableForJoplin { system = prev.stdenv.hostPlatform.system; }).joplin-desktop;
+    })
+    # claude-code CLI (user.nix) and its VS Code extension (development.nix):
+    # both move fast enough that the stable channel lags noticeably, so pull
+    # both from the nixos-unstable channel (see nixosUnstable above).
+    (final: prev:
+      let
+        pkgsUnstable = import nixosUnstable {
+          system = prev.stdenv.hostPlatform.system;
+          config.allowUnfree = true;
+        };
+      in {
+        claude-code = pkgsUnstable.claude-code;
+        vscode-extensions = prev.vscode-extensions // {
+          anthropic = (prev.vscode-extensions.anthropic or { }) // {
+            claude-code = pkgsUnstable.vscode-extensions.anthropic.claude-code;
+          };
+        };
+      })
   ];
 
   # ── Networking ─────────────────────────────────────────────────────────────
   networking.hostName              = "nixos";
   networking.networkmanager.enable  = true;
-  networking.networkmanager.plugins = [ pkgs.networkmanager-vpnc pkgs.networkmanager-openconnect ];
+  networking.networkmanager.plugins = [ pkgs.networkmanager-openconnect ];
   networking.firewall.enable                    = true;
   networking.firewall.logRefusedConnections     = true;
 

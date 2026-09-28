@@ -10,6 +10,7 @@ let
   remotes = [
     { name = "onedrive"; path = "/home/${user}/OneDrive"; }
     { name = "storagebox"; path = "/home/${user}/StorageBox"; }
+    { name = "pictures-smartphone"; path = "/home/${user}/pictures-smartphone"; }
   ];
 
   mkRcloneService = remote: {

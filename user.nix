@@ -79,6 +79,7 @@
       lm_sensors
       dmidecode
       rclone             # Mount/sync SharePoint, OneDrive-Business, OneDrive
+      hcloud             # Hetzner Cloud CLI - manages Storage Box settings/snapshots/sub-accounts
 
       # ── AI / ML ─────────────────────────────────────────────────────────
       ollama
