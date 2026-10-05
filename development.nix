@@ -95,6 +95,7 @@
       ms-vscode.cpptools-extension-pack
       ms-vscode.powershell
       ms-vsliveshare.vsliveshare
+      myriad-dreamin.tinymist
       pkief.material-icon-theme
       redhat.java
       redhat.vscode-yaml
