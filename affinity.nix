@@ -46,20 +46,20 @@ let
     cat <<'EOF'
 
 >> Dependencies installed. Next:
-   1. Download the installer into ~/Downloads:
+   1. Download the installer into ~/wine/affinity:
         Affinity by Canva (free, 3.x):  https://www.affinity.studio/download
         Affinity v2 (existing license): https://affinity.serif.com/v2/
    2. Run the installer, e.g.:
-        WINEPREFIX=$HOME/.affinity wine ~/Downloads/'Affinity x64.exe'
+        WINEPREFIX=$HOME/.affinity wine ~/wine/affinity/'Affinity x64.exe'
       (for v2, run each app's installer once)
    3. Affinity by Canva only — apply the sign-in/prefs fix:
         affinity-winefix
-   4. Launch:
+   4. Install DXVK (fixes blank white/black context menus and popups —
+      Wine's built-in D3D has no working D3D12 path):
+        WINEPREFIX=$HOME/.affinity winetricks --unattended dxvk renderer=vulkan
+   5. Launch:
         affinity                 # Affinity by Canva (unified app)
         affinity Photo           # v2 (or Designer / Publisher)
-
-   Optional, if you hit rendering glitches:
-        WINEPREFIX=$HOME/.affinity winetricks dxvk renderer=vulkan
 EOF
   '';
 

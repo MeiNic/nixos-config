@@ -717,15 +717,21 @@ Runs **Affinity by Canva** (free, 3.x) and **Affinity v2** via Wine (requires Wi
 # 1. Create and configure the wine prefix
 affinity-setup                 # Takes 10-20 min (downloads .NET 4.8)
 
-# 2. Download and run the installer
+# 2. Download the installer into ~/wine/affinity (keeps it out of ~/Downloads)
 # Affinity by Canva: https://www.affinity.studio/download
 # Affinity v2: https://affinity.serif.com/v2/
-WINEPREFIX=$HOME/.affinity wine ~/Downloads/'Affinity x64.exe'
+mkdir -p ~/wine/affinity
+WINEPREFIX=$HOME/.affinity wine ~/wine/affinity/'Affinity x64.exe'
 
 # 3. For Affinity by Canva only — apply the WineFix (patches sign-in + prefs saving)
 affinity-winefix
 
-# 4. Launch
+# 4. Install DXVK — Wine's built-in D3D has no working D3D12 path, which shows up
+#    as blank white/black context menus and popups. DXVK routes D3D through Vulkan
+#    (works with the Intel Arc/Meteor Lake iGPU) and fixes it.
+WINEPREFIX=$HOME/.affinity winetricks --unattended dxvk renderer=vulkan
+
+# 5. Launch
 affinity                       # Launches Affinity by Canva
 affinity Photo                 # Launches Affinity v2 Photo (or Designer/Publisher)
 ```
