@@ -101,6 +101,7 @@
       ausweisapp
       solaar             # Logitech device manager
       proton-pass
+      proton-pass-cli
       spotify
     ];
   };

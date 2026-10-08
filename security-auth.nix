@@ -4,6 +4,7 @@ let
   pamLib = "${pkgs.pam}/lib/security";
   fpSo   = "${pkgs.fprintd}/lib/security/pam_fprintd.so";
   kwSo   = "${pkgs.kdePackages.kwallet-pam}/lib/security/pam_kwallet5.so";
+  keySo  = "${pamLib}/pam_keyinit.so";
 
   flockArgs = "deny=2 unlock_time=0";  # 2 failures → locked until `faillock --user nico --reset`
 
@@ -73,4 +74,25 @@ in
   # The smartcard (YubiKey PIV) method must be YubiKey-only. Drop the pam_unix
   # that NixOS adds by default, so a password can never slip in via this track.
   security.pam.services.kde-smartcard.unixAuth = lib.mkForce false;
+
+  # NixOS never wires up pam_keyinit anywhere, so processes never join a
+  # proper kernel session keyring — keyctl calls (e.g. proton-pass-cli's
+  # keyutils-backed credential store) see a lazily-created keyring they
+  # aren't a possessor of and fail with EACCES on search. `login` covers TTY
+  # logins and, via its "session include login", the sddm graphical login
+  # too; `systemd-user` covers the per-user systemd instance that actually
+  # spawns the desktop session. "force revoke" discards any such stale
+  # keyring and joins a fresh one owned by the session.
+  security.pam.services.login.rules.session.keyinit = {
+    control    = "optional";
+    modulePath = keySo;
+    args       = [ "force" "revoke" ];
+    order      = config.security.pam.services.login.rules.session.env.order - 50;
+  };
+  security.pam.services.systemd-user.rules.session.keyinit = {
+    control    = "optional";
+    modulePath = keySo;
+    args       = [ "force" "revoke" ];
+    order      = config.security.pam.services.systemd-user.rules.session.env.order - 50;
+  };
 }
