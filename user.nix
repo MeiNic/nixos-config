@@ -45,6 +45,7 @@
       gtk3
       clang
       claude-code
+      grpc-tools
 
       # ── Security & Crypto ───────────────────────────────────────────────
       keepassxc

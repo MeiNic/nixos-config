@@ -61,6 +61,7 @@
   fonts.packages = with pkgs; [
     noto-fonts-color-emoji    # colour emoji (avoids □ boxes in browser/apps)
     liberation_ttf      # Arial/Times/Courier drop-ins for Office doc compat
+    corefonts           # genuine Arial/Helvetica/Times New Roman (Typst needs exact family names)
     nerd-fonts.meslo-lg # MesloLGS icons for the zsh powerline prompt
   ];
 

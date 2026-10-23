@@ -69,10 +69,12 @@
       davidanson.vscode-markdownlint
       dbaeumer.vscode-eslint
       docker.docker
+      drblury.protobuf-vsc
       dotjoshjohnson.xml
       esbenp.prettier-vscode
       fill-labs.dependi
       github.vscode-github-actions
+      github.vscode-pull-request-github
       gitlab.gitlab-workflow
       gruntfuggly.todo-tree
       hediet.vscode-drawio
@@ -108,6 +110,7 @@
       vscjava.vscode-java-pack
       vscjava.vscode-java-test
       vscjava.vscode-maven
+      yzhang.markdown-all-in-one
     ];
   };
 }
