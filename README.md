@@ -1,6 +1,6 @@
 # NixOS Configuration
 
-Personal NixOS system configuration for a laptop with an Intel Core Ultra 155H (Meteor Lake), running **KDE Plasma 6**.
+Personal NixOS system configuration for a Framework 13 laptop with an Intel Core Ultra 155H (Meteor Lake), running **KDE Plasma 6**. Channel-based (`nixos-26.05`, plus `nixos-unstable` for a few fast-moving packages), no flake.
 
 ---
 
@@ -9,68 +9,63 @@ Personal NixOS system configuration for a laptop with an Intel Core Ultra 155H (
 ### Configuration Management
 
 ```bash
-# Edit config and apply changes to the system
-cd ~/nixos-config
-git add -A && git commit -m "feat: describe change"
-sudo nixos-rebuild switch      # Apply changes (fish abbreviation: nixos-rebuild)
+cd /etc/nixos                  # also reachable as ~/nixos-config (symlink)
 
-# Test changes without making them the default boot entry
-sudo nixos-rebuild test
-
-# Build without applying
-sudo nixos-rebuild build
+sudo nixos-rebuild build       # Evaluate + build only — validate a change
+sudo nixos-rebuild test        # Activate without making it the default boot entry
+sudo nixos-rebuild switch      # Activate and make it the boot default (fish abbreviation: nixos-rebuild)
+sudo nixos-rebuild boot        # Make it the boot default without activating now (kernel/initrd/microcode changes)
 
 # Git operations (no sudo needed)
-git add -A && git commit -m "..."
+git add <files> && git commit -m "..."
 git push
 ```
 
 ### System Updates & Maintenance
 
 ```bash
-# Update nixpkgs channel (pulls latest stable packages)
-sudo nix-channel --update
-
-# Apply updates and rebuild
-sudo nixos-rebuild switch --upgrade
+# Update all channels (nixos + nixos-unstable) and rebuild in one step
+sudo nixos-rebuild switch --upgrade-all
 
 # Clean up old generations and free disk space
-sudo nix-collect-garbage            # Remove unreachable packages
-sudo nix-collect-garbage -d         # Also remove older generations
+# (also runs automatically: weekly, deleting generations older than 14 days)
+sudo nix-collect-garbage -d
 
-# Check current NixOS/Nix versions
+# List generations / roll back
+sudo nixos-rebuild list-generations
+sudo nixos-rebuild switch --rollback   # Switch to the previous generation now (and make it the default)
+# …or pick an older generation in the systemd-boot menu at boot
+
+# Versions & health
 nixos-version
 nix --version
+systemctl --failed
+```
 
-# List all available NixOS generations (for rollback)
-sudo nixos-rebuild list-generations
+### Pinned Versions
 
-# Boot into a previous generation at next reboot
-sudo nixos-rebuild switch --rollback
+Updating the channels also moves claude-code (CLI + VS Code extension) and joplin-desktop, which come from the `nixos-unstable` channel via the overlay in `configuration.nix`. The two remaining hash pins are bumped by hand:
 
-# Check service status
-sudo systemctl status
+```bash
+# sops-nix (secrets.nix): take master's head, then put the rev + hash into the url/sha256
+git ls-remote https://github.com/Mic92/sops-nix refs/heads/master
+nix-prefetch-url --unpack https://github.com/Mic92/sops-nix/archive/<rev>.tar.gz
+
+# open-android-backup (android-backup.nix): only on a new upstream release tag.
+# Update rev + version, set hash = "" and rebuild to get the real hash from the error;
+# the build fails if patches/open-android-backup-nixos-unattended-fixes.patch no longer applies.
+sudo systemctl start android-backup-auto   # test with the phone connected
 ```
 
 ### Backup & Snapshot Management
 
 ```bash
-# Check backup status
-sudo systemctl status borgbackup-job-usb-a
-sudo systemctl status borgbackup-job-usb-manual
+backup-status                      # Overview: timers, btrbk snapshots, Borg drives
 
-# Manually trigger USB Drive A backup
-sudo systemctl start borgbackup-job-usb-a
-
-# Manually trigger USB Drive B backup (manual drive)
-sudo systemctl start borgbackup-job-usb-manual
-
-# Check btrfs snapshot status
-sudo btrfs subvolume list /
-
-# List backup archives
-sudo BORG_PASSPHRASE=$(cat /etc/nixos/secrets/borg-passphrase) \
-  borg list /mnt/borg-usb-a/borg-repo
+# btrbk snapshots (hourly)
+ls /.snapshots
+systemctl list-timers btrbk.timer
+sudo journalctl -u btrbk -n 50
 
 # Android → Hetzner Storage Box (auto-fires on USB connect; run manually for contacts)
 sudo systemctl start android-backup-manual
@@ -80,38 +75,38 @@ sudo journalctl -fu android-backup-auto
 ### System Information & Diagnostics
 
 ```bash
-# Check hardware info
+# Hardware
 hardinfo2                          # Detailed hardware information
+fastfetch                          # System summary
 lsblk                              # Disk/partition layout
-lm_sensors                         # CPU/thermal sensors
-smartctl -a /dev/nvme0n1           # NVMe health status
-dmidecode                          # BIOS/UEFI info
+duf                                # Disk usage per mount
+sensors                            # CPU/thermal sensors
+btop                               # Processes, CPU, memory, disk, network
+sudo dmidecode -t bios             # BIOS/UEFI info
+nix-shell -p smartmontools --run 'sudo smartctl -a /dev/nvme0n1'   # NVMe health
 
-# Check audio/PipeWire status
-pactl list sinks                   # Available audio outputs
-pactl list sources                 # Available audio inputs
-journalctl -u pipewire -n 50       # Recent PipeWire logs
+# Audio (PipeWire)
+wpctl status                       # Sinks, sources, streams
+journalctl --user -u pipewire -n 50
 
-# Check battery/power
-cat /sys/class/power_supply/BAT0/status
-cat /sys/class/power_supply/BAT0/capacity
+# Battery
+cat /sys/class/power_supply/BAT1/status
+cat /sys/class/power_supply/BAT1/capacity
 ```
 
 ### Security & Authentication
 
 ```bash
-# Check account lock status
-faillock --user nico
+# Account lockout (lock screen)
+faillock --user nico               # Check lock status
+faillock --user nico --reset       # Unlock
 
-# Unlock account (if locked after failed attempts)
-faillock --user nico --reset
+# YubiKey
+ykman list                         # Is the key detected?
+systemctl status pcscd             # Smart-card daemon
 
-# Verify YubiKey is working
-lsusb | grep Yubi
-systemctl status pcscd             # Smart card daemon
-
-# Test fingerprint reader
-fprintd-demo                       # Interactive fingerprint test
+# Fingerprint reader
+fprintd-verify                     # Interactive fingerprint test
 ```
 
 ---
@@ -119,45 +114,47 @@ fprintd-demo                       # Interactive fingerprint test
 ## Module Overview
 
 ```
-configuration.nix          ← Entry point (networking, locale, services, state)
-hardware.nix               ← Boot, LUKS/FIDO2, kernel, power management, Bluetooth, firmware
+configuration.nix          ← Entry point: imports, overlays, networking, locale, printing, Docker, Flatpak, GC, sudo rule
+hardware-configuration.nix ← Auto-generated by nixos-generate-config (gitignored, do not edit)
+secrets.nix                ← sops-nix wiring (age) - see § Secrets
+hardware.nix               ← Boot, LUKS/FIDO2, kernel, power, memory pressure, Wi-Fi, Bluetooth, firmware, graphics
 filesystems.nix            ← btrfs subvolume mounts on the shared LUKS partition
-desktop.nix                ← Display manager (SDDM), KDE Plasma 6, audio (PipeWire), printing, input
-user.nix                   ← User account, packages, Fish shell (+ nixos-rebuild abbreviation), ADB, Wireshark
-development.nix            ← VS Code (declarative extensions) + Android SDK/emulator env for Flutter
-rclone-onedrive.nix        ← rclone mounts for OneDrive & Hetzner Storage Box (systemd user services)
-git-ssh.nix                ← Git config, SSH key deployment (migrated from Windows)
-backup.nix                 ← btrbk snapshots + BorgBackup to USB drives
+desktop.nix                ← SDDM, KDE Plasma 6, PipeWire, printing drivers, fprintd daemon, fonts
+user.nix                   ← User account, packages, Fish shell + plugins (+ nixos-rebuild abbreviation)
+git-ssh.nix                ← Git config, SSH client config + allowed signers, GPG agent, sshd
+backup.nix                 ← btrbk snapshots + BorgBackup to USB drives + backup-status helper
 android-backup.nix         ← Android phone → Hetzner Storage Box (open-android-backup + rclone SFTP)
 xdg-defaults.nix           ← Default applications (MIME types, BROWSER/EDITOR vars, xdg-portal)
-hardware-configuration.nix ← Auto-generated by nixos-generate-config (do not edit)
 security-auth.nix          ← PAM: YubiKey (PIV) or password+fingerprint lock screen; fingerprint never a sole factor
 eduroam.nix                ← eduroam Wi-Fi via EAP-TLS (certificate, no password)
 affinity.nix               ← Wine setup for Affinity by Canva and Affinity v2
-secrets.nix                ← sops-nix wiring (age) - see § Secrets
+rclone-onedrive.nix        ← rclone mounts (OneDrive, Storage Box, phone pictures) as systemd user services
+development.nix            ← VS Code (declarative extensions) + Android SDK/emulator env for Flutter
 
 .sops.yaml                 ← sops creation rules (which age key encrypts secrets.yaml) - tracked in git
 secrets.yaml               ← Encrypted secrets (u2f-mappings, android-backup-env, hetzner-storagebox-key) - tracked in git
 
-secrets/                   ← gitignored except *.template files
+secrets/                   ← gitignored except *.template files - see § Secrets
   personal.nix             ← Git identity & SSH signing key
-  personal.nix.template    ← Template for personal.nix
   luks-uuids.nix           ← LUKS UUID of the shared partition
-  luks-uuids.nix.template  ← Template for luks-uuids.nix
   eduroam.nix              ← eduroam identity & server pin
-  eduroam.nix.template     ← Template for eduroam.nix
-  hetzner-storagebox-known_hosts          ← Pinned SFTP host key, not secret, just not worth committing (ssh-keyscan'd manually)
-  hetzner-storagebox-known_hosts.template ← Instructions for generating the known_hosts file
+  hetzner-storagebox-known_hosts ← Pinned SFTP host key
+  *.template               ← Templates for each of the above
+
+certs/                     ← eduroam client cert + key (*.pem, gitignored) - see § eduroam
 
 patches/
   open-android-backup-nixos-unattended-fixes.patch ← see § Android Backup
+
+migrate-secrets.sh         ← One-time migration of the old plain-text secrets into secrets.yaml (already done)
+backup-status-patch.py     ← One-time script that added backup-status to backup.nix (already applied)
 ```
 
 ---
 
 ## Daily Workflow
 
-The `@configs` btrfs subvolume is mounted at `~/nixos-config` (owned by `nico`), so all git operations work **without `sudo`**. `/etc/nixos` is a symlink pointing to `~/nixos-config`, which is re-created on every rebuild by an activation script.
+`/etc/nixos` *is* the `@configs` btrfs subvolume, mounted there directly and owned by `nico`, so all git operations work **without `sudo`**. `~/nixos-config` is a plain symlink pointing at `/etc/nixos`; either path reaches the same files.
 
 The login shell is Fish, which has a `nixos-rebuild` abbreviation that expands to `sudo nixos-rebuild switch`. `nico` has a `NOPASSWD` sudo rule specifically for `nixos-rebuild`, so the password prompt only appears for other sudo commands.
 
@@ -167,14 +164,20 @@ The login shell is Fish, which has a `nixos-rebuild` abbreviation that expands t
 
 | Feature | Detail |
 |---|---|
-| Bootloader | `systemd-boot` with EFI |
+| Bootloader | `systemd-boot` with EFI, systemd-based initrd |
 | LUKS encryption | Two devices: `crypt_nixos` (NixOS root) and `shared` (shared partition) |
-| FIDO2 unlock | YubiKey auto-detected for both LUKS devices at boot |
+| FIDO2 unlock | YubiKey auto-detected for both LUKS devices at boot (`fido2-device=auto`) |
 | Kernel | `linuxPackages_latest` |
+| Microcode | Intel microcode from nixpkgs, loaded early from the initrd |
 | Power tuning | `power-profiles-daemon` (drives KDE's power-profile widget), `thermald`, `powertop --auto-tune` |
 | Suspend | Kernel params tuned for deep C-states (`nvme.noacpi=1`, `pcie_aspm=powersupersave`, etc.) |
+| Memory pressure | zram swap (zstd, 50 % of RAM) + earlyoom (kills memory hogs at < 5 % RAM and < 10 % swap free) |
+| Freeze diagnostics | NMI watchdog + soft/hard-lockup → panic, written to pstore (`/sys/fs/pstore`), auto-reboot after 10 s |
+| Wi-Fi | Regulatory domain pinned to `DE` (unlocks the 6 GHz / Wi-Fi 6E channels) |
+| Graphics | Intel Arc/Xe with VAAPI (`intel-media-driver`), 32-bit support for Wine |
 | Bluetooth | Enabled with experimental features |
-| Firmware updates | `fwupd` enabled |
+| Peripherals | Logitech Unifying/Bolt udev rules + Solaar tray, Thunderbolt via `bolt` |
+| Firmware updates | `fwupd` enabled, `enableAllFirmware` |
 | YubiKey / Smart-card | `pcscd` enabled |
 
 ### LUKS Sensitive Values
@@ -185,17 +188,18 @@ The login shell is Fish, which has a `nixos-rebuild` abbreviation that expands t
 
 ## Filesystems (`filesystems.nix`)
 
-All subvolumes live on the **shared LUKS partition** (`/dev/mapper/shared`, btrfs). All are mounted with `compress=zstd` and `noatime`.
+The root filesystem is its own btrfs on `crypt_nixos` (defined in `hardware-configuration.nix`). Everything else lives as subvolumes on the **shared LUKS partition** (`/dev/mapper/shared`, btrfs), all mounted with `compress=zstd` and `noatime`:
 
 | Mount Point | btrfs Subvolume | Notes |
 |---|---|---|
 | `/nix` | `@nix` | Nix store |
 | `/home` | `@home` | User home directories |
-| `/home/nico/nixos-config` | `@configs` | Config files — git-managed, no sudo needed |
-| `/var/lib/docker` | `@docker` | Docker data |
+| `/etc/nixos` | `@configs` | This repo — git-managed, owned by `nico` |
+| `/var/lib/docker` | `@docker` | Mounted, but Docker's `data-root` is set to `/data/docker` (root fs) in `configuration.nix` |
 | `/var/lib/flatpak` | `@flatpak` | Flatpak apps |
+| `/.snapshots` | `@snapshots` | btrbk snapshot target (mounted from `backup.nix`) |
 
-> **Important:** The `/home/nico/nixos-config` mount point is **not** needed for boot (`neededForBoot = false`). VS Code or your file manager may show it as a mountable/unmountable volume — **do not unmount it while the system is running**, as `/etc/nixos` is a symlink that points to it. Unmounting would break the symlink until the next reboot/remount.
+> **Important:** VS Code or your file manager may show `/etc/nixos` as a mountable/unmountable volume — **do not unmount it while the system is running**. It *is* the config repo, and `~/nixos-config` points at it.
 
 ---
 
@@ -207,8 +211,9 @@ All subvolumes live on the **shared LUKS partition** (`/dev/mapper/shared`, btrf
 | Desktop environment | KDE Plasma 6 |
 | Keyboard layout | German (`de`) for both X11 and console |
 | Audio | PipeWire with ALSA, PulseAudio compatibility, and WirePlumber |
-| Printing | CUPS enabled with Gutenprint drivers |
+| Printing | CUPS with Gutenprint, Ghostscript, and the Brother MFC-J470DW driver (works for the J497DW; in `configuration.nix`) |
 | Fingerprint | `fprintd` daemon (lock-screen 2nd factor only — see `security-auth.nix`) with Goodix MOC resume workaround |
+| Fonts | Noto Color Emoji, Liberation, MS core fonts (Typst needs the exact family names), MesloLGS Nerd Font |
 
 ---
 
@@ -230,17 +235,19 @@ User overrides via KDE Plasma's file manager context menu are written to `~/.con
 |---|---|
 | Web browser | Brave |
 | E-mail | Thunderbird |
-| PDF | Okular (KDE) or Evince |
+| PDF | Evince |
 | Office documents | LibreOffice (Writer / Calc / Impress) |
 | Images | Gwenview (KDE) |
-| Video & Audio | Haruna (KDE) or VLC |
+| Video & Audio | VLC |
 | Archives | Ark (KDE) |
-| Text / Code | VS Code |
-| File manager | Dolphin (KDE Plasma) |
+| Text / Code | VS Code (`VISUAL`); `EDITOR` is vim |
+| File manager | Dolphin (Plasma's default) |
+
+> Two Cinnamon leftovers in `xdg-defaults.nix` point at programs that aren't installed: `TERMINAL=gnome-terminal` and `inode/directory → nemo.desktop`.
 
 To change a default, edit the relevant entry in `xdg-defaults.nix` and run `sudo nixos-rebuild switch`. To find the correct `.desktop` ID:
 ```bash
-find /run/current-system/sw/share/applications ~/.local/share/applications -name '*.desktop' | sort
+find /run/current-system/sw/share/applications /etc/profiles/per-user/$USER/share/applications ~/.local/share/applications -name '*.desktop' | sort
 # Check what's currently registered for a type:
 xdg-mime query default application/pdf
 ```
@@ -250,30 +257,28 @@ xdg-mime query default application/pdf
 ## User Account (`user.nix`)
 
 **User:** `nico`
-**Shell:** Fish (with pure prompt + autopair plugin, and a `nixos-rebuild` abbreviation)
-**Groups:** `networkmanager`, `wheel`, `wireshark`, `adbusers`, `docker`, `vboxusers`
+**Shell:** Fish with the pure prompt and the autopair, fzf-fish, done, fish-you-should-use and sponge plugins, plus a `nixos-rebuild` abbreviation
+**Groups:** `networkmanager`, `wheel`, `wireshark`, `adbusers`, `docker`
 
 ### Installed Packages (selection)
 
 | Category | Packages |
 |---|---|
 | Communication | Thunderbird, Birdtray, Signal, ZapZap (WhatsApp), Discord |
-| Browsers | Brave, Google Chrome |
-| Development | GitHub CLI, act, Go, JDK 21, Node.js, Python 3, Rust, Dart, Flutter, Android Studio, GoLand, IntelliJ IDEA, WebStorm, Rust-Rover, Zig |
-| Security | KeePassXC, Wireshark, Hashcat, Ripgrep |
-| Office / Productivity | LibreOffice, Draw.io, Evince, Anki, GIMP, VLC, Handbrake, Joplin (CLI + Desktop), LaTeX (texliveFull) |
-| System & KDE Tools | p7zip, smartmontools, hardinfo2, lm_sensors, dmidecode, Ark, Gwenview, KCalc, Konsole, Kate, Spectacle, Okular, Plasma System Monitor, Filelight, KFind |
-| Network / VPN | OpenConnect, rclone |
-| Media | Haruna (KDE video player with playlist/chapter UI) |
-| AI / ML | Ollama, Open WebUI |
+| Browsers | Brave, Google Chrome (Firefox via `programs.firefox`) |
+| Development | GitHub CLI, act, Go, JDK 21, Node.js + pnpm, Python 3, rustup, GCC, Clang, CMake, Ninja, pkg-config, Dart, Flutter, PHP, Zig, Android Studio, android-tools, grpc-tools, tokei, claude-code |
+| Security | KeePassXC, Proton Pass (desktop + CLI), Wireshark (via `programs.wireshark`) |
+| Office / Productivity | LibreOffice (fresh), LaTeX (texliveFull), Typst, Draw.io, Evince, Anki, GIMP, VLC, Handbrake, Joplin (Desktop + CLI) |
+| KDE Tools | Ark, Gwenview, KCalc, Konsole, Kate, Spectacle, Okular, Plasma System Monitor, Filelight, KFind |
+| System & Utilities | p7zip, hardinfo2, lm_sensors, dmidecode, ripgrep, rclone, hcloud (Hetzner CLI), Vorta (BorgBackup GUI) |
+| Network / VPN | OpenConnect |
+| AI / ML | Ollama |
 | Windows Compatibility | Wine (64-bit stable, for Affinity) |
-| Misc | AusweisApp, Solaar (Logitech), Proton Pass, Spotify, Teams for Linux, Vorta (BorgBackup GUI) |
+| Misc | AusweisApp, Solaar (Logitech), Spotify |
 
-VS Code (with its full declarative extension set) and the Android SDK/emulator environment live in `development.nix` — see the Module Overview above.
+VS Code (with its full declarative extension set) and the Android SDK/emulator environment live in `development.nix`.
 
-Additional system-level features: Docker (`virtualisation.docker`), Firefox (`programs.firefox`).
-
-> `vboxusers` is in the group list for when VirtualBox is needed, but `virtualisation.virtualbox.host.enable` is currently commented out in `configuration.nix` — the group alone doesn't install or enable anything.
+Additional system-level features: Docker (`virtualisation.docker`), Flatpak, `nix-ld` (for prebuilt binaries such as the Android SDK tools).
 
 ### Signal Desktop — Taskbar Badge Count
 
@@ -311,7 +316,7 @@ After creating/editing the file, refresh the caches so Plasma picks it up withou
 
 ```bash
 update-desktop-database ~/.local/share/applications
-kbuildsycoca6 --noincremental   # kbuildsycoca5 on older Plasma
+kbuildsycoca6 --noincremental
 ```
 
 This is deliberately *not* wired up declaratively (no nixpkgs overlay in `configuration.nix`, no rebuild needed) — it's a one-off manual fix, applied outside git. Caveat: `libunity` isn't in `user.nix`'s package list, so nothing pins it as a Nix GC root; if it vanishes after a `nix-collect-garbage`, re-run the `nix-instantiate` command above for its new store path and update the `Exec=` line.
@@ -320,15 +325,15 @@ This is deliberately *not* wired up declaratively (no nixpkgs overlay in `config
 
 ## Development Tooling (`development.nix`)
 
-Declares VS Code with its full extension set (`programs.vscode.extensions`) so a fresh install reproduces the same editor without clicking through the marketplace, plus the Android SDK/emulator environment (`ANDROID_HOME`, `PATH` entries) so Flutter can target the emulator without opening Android Studio.
+Declares VS Code with its full extension set (`programs.vscode.extensions`) so a fresh install reproduces the same editor without clicking through the marketplace, plus the Android SDK/emulator environment (`ANDROID_HOME`, `PATH` entries for the SDK tools and `~/.cargo/bin`) so Flutter can target the emulator without opening Android Studio.
 
-A handful of marketplace extensions aren't packaged in nixpkgs' `vscode-extensions` set and need `code --install-extension <id>` by hand after a fresh install — see the comment block at the top of the file for the current list.
+The SDK itself (`~/Android/Sdk`, including cmdline-tools and the AVD) is managed imperatively, not by Nix — see the comment block at the top of the file for why. A handful of marketplace extensions aren't packaged in nixpkgs' `vscode-extensions` set and need `code --install-extension <id>` by hand after a fresh install — that comment block also has the current list.
 
 ---
 
 ## Cloud Storage Mounts (`rclone-onedrive.nix`)
 
-Mounts rclone remotes as systemd **user** services (`rclone mount ... --daemon`), currently `onedrive` → `~/OneDrive` and `storagebox` → `~/StorageBox`. Requires a one-time `rclone config` per remote (not managed by Nix). To add another mount, add an entry to the `remotes` list in the file.
+Mounts rclone remotes as systemd **user** services (`rclone-<name>`, `rclone mount ... --daemon`): `onedrive` → `~/OneDrive`, `storagebox` → `~/StorageBox`, and `pictures-smartphone` → `~/pictures-smartphone`. Requires a one-time `rclone config` per remote (not managed by Nix). To add another mount, add an entry to the `remotes` list in the file.
 
 ---
 
@@ -338,8 +343,9 @@ All personal identifiers (name, email, signing key) are loaded from `secrets/per
 
 | Feature | Detail |
 |---|---|
-| Git config | Written declaratively via activation script to `~/.gitconfig` |
-| Commit signing | SSH signing with a dedicated `git_signing_key` Ed25519 key |
+| Git config | `programs.git.config` → system-wide `/etc/gitconfig` |
+| Commit signing | SSH signing with a dedicated `git_signing_key` Ed25519 key; `/etc/ssh/allowed_signers` generated from `personal.nix` |
+| SSH client | GitHub host entry (`gh_action_key`), keep-alive defaults |
 | GPG agent | Enabled (SSH support disabled — SSH auth handled by ssh-agent) |
 | SSH daemon | Password auth disabled, root login disabled |
 
@@ -364,36 +370,31 @@ iconv -f UTF-16LE -t UTF-8 ~/my_secret_key.asc | tail -c +4 | tr -d '\r' | gpg -
 
 ## Backup (`backup.nix`)
 
-A two-layer backup strategy:
+Two independent layers. The Android phone backup is a separate pipeline (see § Android Backup).
 
-### Layer 1 — btrfs Snapshots (local)
+### Layer 1 — btrfs Snapshots (local, always active)
 
-- **Tool:** btrbk
+- **Tool:** btrbk (`btrbk.service` + hourly `btrbk.timer`, `Persistent=true`)
 - **Location:** `/.snapshots/` (`@snapshots` subvolume)
-- **Schedule:** Hourly (keep 24h) + daily at midnight (keep 14d / 8w / 12m)
-- **Subvolumes snapshotted:** root, `@home`, `@configs`, `@nix`, `@docker`, `@flatpak`
+- **Retention:** at least 2 h, then 24 hourly / 14 daily / 8 weekly / 12 monthly
+- **Subvolumes snapshotted:** `@home`, `@configs`, `@nix`, `@docker`, `@flatpak` — not the root filesystem
 
-### Layer 2 — BorgBackup to USB Drive A (automatic)
+### Layer 2 — BorgBackup to USB Drives
 
-- **Timer:** daily at 02:30 (`Persistent=true` — catches up after missed runs)
-- **Drive absent:** exits cleanly, no failure logged
-- **Compression:** `auto,zstd`
-- **Checkpointing:** every 5 minutes (interrupted backups resume)
+> **Not currently set up on this machine** — superseded by a separate Vorta-managed Borg backup outside this config. `secrets/borg-passphrase` doesn't exist, so `borgbackup-job-usb-a` / `borgbackup-job-usb-manual` will fail until it's created per the setup steps below.
 
-### Layer 3 — BorgBackup to USB Drive B (manual)
+| | Drive A (`borgbackup-job-usb-a`) | Drive B (`borgbackup-job-usb-manual`) |
+|---|---|---|
+| Trigger | Timer, daily at 02:30 (`Persistent=true` — catches up after missed runs) | Manual only: `sudo systemctl start borgbackup-job-usb-manual` |
+| Drive absent | Exits cleanly, no failure logged | Same |
 
-- **No timer** — triggered manually only
-  ```bash
-  sudo systemctl start borgbackup-job-usb-manual
-  ```
-
-### What is Backed Up
+Both use `auto,zstd` compression and checkpoint every 5 minutes (interrupted backups resume).
 
 | Included | Excluded |
 |---|---|
 | `/home`, `/etc/nixos`, `/var/lib/docker`, `/var/lib/flatpak` | `/.cache`, `__pycache__`, `.npm`, `.cargo/registry`, `.rustup`, Trash, `docker/overlay2` |
 
-### USB Drive Setup (one time per drive)
+#### USB Drive Setup (one time per drive)
 
 ```bash
 # 1. Format and label the partition
@@ -414,9 +415,7 @@ echo "your-strong-passphrase" | sudo tee /etc/nixos/secrets/borg-passphrase
 sudo chmod 600 /etc/nixos/secrets/borg-passphrase
 ```
 
-> **Not currently set up on this machine** — this USB-drive layer is superseded by a separate Vorta-managed Borg backup outside this config. `secrets/borg-passphrase` doesn't exist, so `borgbackup-job-usb-a`/`-manual` will fail until it's created per the steps above.
-
-### Useful Backup Commands
+#### Useful Borg Commands
 
 ```bash
 # Check last backup status
@@ -459,11 +458,12 @@ Matches the standard Android ADB USB interface (class `ff` / subclass `42` / pro
 
 ### Upstream patch
 
-`patches/open-android-backup-nixos-unattended-fixes.patch`, three fixes against the pinned commit, all found by actually running the vendored script end-to-end (against a stub `adb`) rather than trusting a successful `nixos-rebuild build` alone:
+`patches/open-android-backup-nixos-unattended-fixes.patch`, four fixes against the pinned `v1.2.3`, all found by actually running the vendored script end-to-end (against a stub `adb`) rather than trusting a successful `nixos-rebuild build` alone:
 
 1. **Whiptail checklist has no `-v` guard.** Unlike every other interactive prompt in `backup_func.sh`, the "what to back up" checklist has no guard for `backup_apps`/`backup_storage`/`backup_contacts` being pre-set — it would block forever on a TTY-less systemd service even with every documented unattended-mode env var set. Guarded it the same way the rest of the script is.
-2. **`PLEASE_READ.txt` fails to write.** `extras/backup_archive_info.txt` is vendored into the read-only Nix store, so `cp` (which carries over source permissions for a newly-created destination) leaves the staged copy mode 444. The following `echo >>` append then fails with "Permission denied." Restored the write bit right after the copy.
-3. **Archives were silently encrypted with an empty password (security-critical).** Upstream feeds `archive_password` to 7z's *interactive* double-prompt over a one-line stdin pipe (`-p < <(echo "$archive_password")`), silently producing an archive encrypted with an **empty password** instead of the real one. Switched to 7z's documented non-interactive `-p<password>` flag, which sidesteps the prompt entirely. Trade-off: the password is then briefly visible in that process's argv (e.g. to other root-equivalent users via `ps`) instead of only over a pipe — an acceptable trade for the archive actually being encrypted with the intended password. Re-verified across repeated runs after the fix: correct password required, empty password rejected.
+2. **Low-space check swallowed by `set -e`.** `enough_free_space` is called bare, so its non-zero return kills the script under `set -e` before the friendly "not enough space" message can print — a bare `exit 1` with no explanation. Capturing the status with `|| fs_status=$?` keeps the intended error path reachable.
+3. **`PLEASE_READ.txt` fails to write.** `extras/backup_archive_info.txt` is vendored into the read-only Nix store, so `cp` (which carries over source permissions for a newly-created destination) leaves the staged copy mode 444. The following `echo >>` append then fails with "Permission denied." Restored the write bit right after the copy.
+4. **Archives were silently encrypted with an empty password (security-critical).** Upstream feeds `archive_password` to 7z's *interactive* double-prompt over a one-line stdin pipe (`-p < <(echo "$archive_password")`), silently producing an archive encrypted with an **empty password** instead of the real one. Switched to 7z's documented non-interactive `-p<password>` flag, which sidesteps the prompt entirely. Trade-off: the password is then briefly visible in that process's argv (e.g. to other root-equivalent users via `ps`) instead of only over a pipe — an acceptable trade for the archive actually being encrypted with the intended password. Re-verified across repeated runs after the fix: correct password required, empty password rejected.
 
 ### Hetzner Storage Box (one time)
 
@@ -520,7 +520,7 @@ sudo rclone lsf ":sftp:android-backup" --sftp-host u643857-sub4.your-storagebox.
 
 ### Failure visibility
 
-No alerting pattern (e.g. ntfy/apprise/mail) exists elsewhere in this config, so this doesn't invent one — failures surface as a failed systemd unit and journal output only (`systemctl status android-backup-auto`). `borgmatic` (installed for the USB-drive backups in `backup.nix`) pulls in `apprise` as a dependency already, if you want to wire up notifications later.
+No alerting pattern (e.g. ntfy/apprise/mail) exists elsewhere in this config, so this doesn't invent one — failures surface as a failed systemd unit and journal output only (`systemctl status android-backup-auto`). `borgmatic` (installed by `backup.nix`) already pulls in `apprise` as a dependency, if you want to wire up notifications later.
 
 ---
 
@@ -559,20 +559,16 @@ To add a brand new secret: add its key via `sops set` above, then declare it in 
 
 ### Values needed at eval time, or not actually secret → plain files (`secrets/`)
 
-The `secrets/` directory is gitignored (except `*.template` files). These can't be sops secrets even in principle — sops only produces runtime file paths, and these get spliced into Nix-evaluated config or are needed before sops can even run:
+The `secrets/` directory is gitignored (except `*.template` files). These can't be sops secrets even in principle — sops only produces runtime file paths, and these get spliced into Nix-evaluated config or are needed before sops can even run. A fresh checkout needs each template copied to its real name and filled in before `nixos-rebuild` will evaluate.
 
 | File | Purpose |
 |---|---|
 | `personal.nix` | Git name, email, SSH signing public key (loaded by `git-ssh.nix`) — not sensitive, and baked into a generated `/etc/ssh/allowed_signers` at build time |
-| `personal.nix.template` | Template — copy to `personal.nix` and fill in your values |
 | `luks-uuids.nix` | LUKS UUID of the `shared` partition (loaded by `hardware.nix`) — needed in initrd, long before sops could decrypt anything |
-| `luks-uuids.nix.template` | Template for `luks-uuids.nix` |
 | `eduroam.nix` | eduroam EAP identity and home RADIUS server pin (loaded by `eduroam.nix`) — spliced into a NetworkManager profile at build time |
-| `eduroam.nix.template` | Template — copy to `eduroam.nix` and fill in your values |
 | `hetzner-storagebox-known_hosts` | Pinned SFTP host key for the Storage Box — not actually secret (SSH host keys are public; pinning is for integrity, not confidentiality), just never got promoted out of this directory |
-| `hetzner-storagebox-known_hosts.template` | Instructions for generating `hetzner-storagebox-known_hosts` |
 
-`borg-passphrase` (for `backup.nix`'s USB BorgBackup layer) isn't set up — superseded by a separate Vorta-managed Borg backup outside this config.
+`borg-passphrase` (for `backup.nix`'s USB BorgBackup layer) isn't set up — see § Backup.
 
 ---
 
@@ -598,11 +594,16 @@ Accepts **password or YubiKey** (PIV PIN, or U2F touch) — fingerprint is **not
 
 ### Authentication methods
 
-| Method | Module | Used for |
+| Method | Mechanism | Used for |
 |---|---|---|
-| YubiKey FIDO2/U2F | `pam_u2f` | LUKS boot unlock, sudo, TTY login (`u2f-mappings` in `secrets.yaml`, see § Secrets) |
+| YubiKey FIDO2 | systemd initrd, `fido2-device=auto` (`hardware.nix`) | LUKS boot unlock of both devices |
+| YubiKey U2F | `pam_u2f` | sudo, TTY login (`u2f-mappings` in `secrets.yaml`, see § Secrets) |
 | YubiKey PIV/PKCS#11 | `pam_p11` | lock-screen smartcard unlock; also accepted for sudo/login (`~/.eid/authorized_certificates`) |
 | Password + fingerprint | `pam_unix` + `pam_fprintd` | lock-screen fallback — both required, in sequence |
+
+### Kernel session keyring
+
+NixOS doesn't add `pam_keyinit` anywhere by default, so sessions never got a proper kernel session keyring and keyutils-backed tools (e.g. `proton-pass-cli`'s credential store) failed with `EACCES`. `security-auth.nix` adds `pam_keyinit force revoke` to the `login` (TTY and SDDM) and `systemd-user` services.
 
 ### Account lockout & recovery
 
@@ -632,7 +633,7 @@ chmod 600 ~/.eid/authorized_certificates && rm ~/piv-pub.pem
 
 Verify: `ykman piv info` shows a cert in slot 9a, and `~/.eid/authorized_certificates` holds one `BEGIN CERTIFICATE` block per key.
 
-### YubiKey FIDO2/U2F enrollment (sudo / boot / TTY)
+### YubiKey U2F enrollment (sudo / TTY)
 
 The mapping file is the `u2f-mappings` entry in `secrets.yaml` (see § Secrets — one line per key, sops-encrypted). To add a key, generate its line and paste it in via the interactive editor:
 
@@ -744,19 +745,4 @@ Wine doesn't detect per-monitor KDE scaling on X11/Wayland. Set it manually:
 affinity-scale 135             # 135% scale → 130 DPI
 affinity-scale 150             # 150% scale → 144 DPI
 affinity-scale 170             # 170% scale → 163 DPI
-```
-
----
-
-## Applying Changes
-
-```bash
-# Full rebuild and switch
-sudo nixos-rebuild switch
-
-# Test a config change without making it the default boot entry
-sudo nixos-rebuild test
-
-# Build but don't switch (inspect the result)
-sudo nixos-rebuild build
 ```
