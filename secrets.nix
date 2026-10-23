@@ -13,8 +13,8 @@ let
   # before the module system's own `pkgs` argument is settled, so depending
   # on `pkgs` here causes infinite recursion. This fetcher is a pure builtin.
   sopsNixSrc = builtins.fetchTarball {
-    url    = "https://github.com/Mic92/sops-nix/archive/a8627b21b9107c5711c96b84f32a9a4b3d45295f.tar.gz";
-    sha256 = "1j89yslxj0q29xzrjcp19r4a130k4cdihx4yw6f2bm72fgia0j42";
+    url    = "https://github.com/Mic92/sops-nix/archive/a1438ca361b05d1e70854d5495abcb34fdf6ff47.tar.gz";
+    sha256 = "13da5cil8cdm5xmjcgwif234rl0kp82819qc1g84xpql53gvg0dg";
   };
 in
 {

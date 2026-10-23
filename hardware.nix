@@ -120,22 +120,6 @@ in
   hardware.enableAllFirmware = true;
   services.fwupd.enable      = true;
 
-  # ── Intel Microcode (pinned to 20260812) ────────────────────────────────────
-  # nixpkgs' microcode-intel can regress ahead of this pin: 20260811 raised
-  # this CPU's blob (MTL/06-aa-04, Core Ultra 155H) to a revision that wedges
-  # the machine at reset (black screen, no kernel output — the early loader
-  # runs before the console is up). 20260812 is Intel's own fix, confirmed
-  # working. Drop this override once nixpkgs ships 20260812 or newer.
-  hardware.cpu.intel.microcodePackage = pkgs.microcode-intel.overrideAttrs (_: rec {
-    version = "20260812";
-    src = pkgs.fetchFromGitHub {
-      owner = "intel";
-      repo  = "Intel-Linux-Processor-Microcode-Data-Files";
-      rev   = "refs/tags/microcode-${version}";
-      hash  = "sha256-Rw40SNaVSnGenRIkuspVzsFXt17GxPUTsRP86aMI4RM=";
-    };
-  });
-
   # ── Intel Arc / Xe Graphics ────────────────────────────────────────────────
   hardware.graphics = {
     enable         = true;

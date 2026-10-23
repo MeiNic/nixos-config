@@ -27,6 +27,7 @@
       "$HOME/Android/Sdk/cmdline-tools/latest/bin"  # sdkmanager/avdmanager
       "$HOME/Android/Sdk/platform-tools"             # adb (SDK-matched version takes priority over android-tools)
       "$HOME/Android/Sdk/emulator"                   # emulator
+      "$HOME/.cargo/bin"                             # cargo-installed binaries (ccusage)
     ];
   };
 

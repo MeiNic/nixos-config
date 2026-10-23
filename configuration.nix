@@ -1,20 +1,12 @@
 { pkgs, ... }:
 
 let
-  # Pin for the joplin-desktop overlay below: nixos-26.05 (stable) doesn't
-  # backport app version bumps, only security/critical fixes, so it stays on
-  # whatever version was current at branch-off (3.5.13). Bump this commit
-  # periodically to track newer nixos-unstable releases of Joplin.
-  unstableForJoplin = builtins.fetchTarball {
-    url    = "https://github.com/NixOS/nixpkgs/archive/20b1ddd1aa5ace70c9468305030aa4f9ef79671b.tar.gz";
-    sha256 = "17c8rash8751zwzq426b54754znickr50nwd4ziq4pklm0pid3h7";
-  };
-  # For claude-code (CLI + VS Code extension) below: tracks whatever is
-  # current on the nixos-unstable channel, unlike unstableForJoplin's fixed
-  # commit pin. Requires the channel to actually be added on this machine:
+  # For the nixos-unstable overlay below (claude-code, joplin-desktop): tracks
+  # whatever is current on the nixos-unstable channel. Requires the channel to
+  # actually be added on this machine:
   #   sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
   #   sudo nix-channel --update
-  # then `sudo nix-channel --update` again whenever a newer claude-code is wanted.
+  # then `sudo nix-channel --update` again whenever newer versions are wanted.
   nixosUnstable = <nixos-unstable>;
 in
 {
@@ -39,28 +31,13 @@ in
   programs.nix-ld.enable = true;
 
   # ── Overlays ───────────────────────────────────────────────────────────────
-  # paho-mqtt 2.1.0's test suite is flaky/broken inside the Nix build sandbox
-  # (ConnectionResetError + callback-ordering assertion failures), blocking
-  # borgmatic -> apprise -> paho-mqtt. Known upstream issue, no fix yet:
-  # https://discourse.nixos.org/t/unable-to-upgrade-to-25-05-because-paho-mqtt/64709
   nixpkgs.overlays = [
-    (final: prev: {
-      python3 = prev.python3.override {
-        packageOverrides = pyFinal: pyPrev: {
-          paho-mqtt = pyPrev.paho-mqtt.overridePythonAttrs (_: {
-            doCheck = false;
-          });
-        };
-      };
-    })
-    # joplin-desktop: stable channel is stuck on 3.5.13 (see unstableForJoplin
-    # above); pull just this package from nixos-unstable instead.
-    (final: prev: {
-      joplin-desktop = (import unstableForJoplin { system = prev.stdenv.hostPlatform.system; }).joplin-desktop;
-    })
-    # claude-code CLI (user.nix) and its VS Code extension (development.nix):
-    # both move fast enough that the stable channel lags noticeably, so pull
-    # both from the nixos-unstable channel (see nixosUnstable above).
+    # Pulled from the nixos-unstable channel (see nixosUnstable above):
+    # - claude-code CLI (user.nix) and its VS Code extension (development.nix):
+    #   both move fast enough that the stable channel lags noticeably.
+    # - joplin-desktop: nixos-26.05 doesn't backport app version bumps, only
+    #   security/critical fixes, so stable is stuck on 3.5.13 from branch-off.
+    #   Drop it from here once the stable channel catches up.
     (final: prev:
       let
         pkgsUnstable = import nixosUnstable {
@@ -69,6 +46,7 @@ in
         };
       in {
         claude-code = pkgsUnstable.claude-code;
+        joplin-desktop = pkgsUnstable.joplin-desktop;
         vscode-extensions = prev.vscode-extensions // {
           anthropic = (prev.vscode-extensions.anthropic or { }) // {
             claude-code = pkgsUnstable.vscode-extensions.anthropic.claude-code;
