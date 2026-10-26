@@ -146,8 +146,8 @@ certs/                     ← eduroam client cert + key (*.pem, gitignored) - s
 patches/
   open-android-backup-nixos-unattended-fixes.patch ← see § Android Backup
 
-migrate-secrets.sh         ← One-time migration of the old plain-text secrets into secrets.yaml (already done)
 backup-status-patch.py     ← One-time script that added backup-status to backup.nix (already applied)
+
 ```
 
 ---
@@ -195,7 +195,7 @@ The root filesystem is its own btrfs on `crypt_nixos` (defined in `hardware-conf
 | `/nix` | `@nix` | Nix store |
 | `/home` | `@home` | User home directories |
 | `/etc/nixos` | `@configs` | This repo — git-managed, owned by `nico` |
-| `/var/lib/docker` | `@docker` | Mounted, but Docker's `data-root` is set to `/data/docker` (root fs) in `configuration.nix` |
+| `/var/lib/docker` | `@docker` | Docker data (`data-root = /var/lib/docker`, btrfs storage driver) |
 | `/var/lib/flatpak` | `@flatpak` | Flatpak apps |
 | `/.snapshots` | `@snapshots` | btrbk snapshot target (mounted from `backup.nix`) |
 
@@ -235,15 +235,13 @@ User overrides via KDE Plasma's file manager context menu are written to `~/.con
 |---|---|
 | Web browser | Brave |
 | E-mail | Thunderbird |
-| PDF | Evince |
+| PDF | Okular (KDE) |
 | Office documents | LibreOffice (Writer / Calc / Impress) |
 | Images | Gwenview (KDE) |
 | Video & Audio | VLC |
 | Archives | Ark (KDE) |
 | Text / Code | VS Code (`VISUAL`); `EDITOR` is vim |
 | File manager | Dolphin (Plasma's default) |
-
-> Two Cinnamon leftovers in `xdg-defaults.nix` point at programs that aren't installed: `TERMINAL=gnome-terminal` and `inode/directory → nemo.desktop`.
 
 To change a default, edit the relevant entry in `xdg-defaults.nix` and run `sudo nixos-rebuild switch`. To find the correct `.desktop` ID:
 ```bash
@@ -268,7 +266,7 @@ xdg-mime query default application/pdf
 | Browsers | Brave, Google Chrome (Firefox via `programs.firefox`) |
 | Development | GitHub CLI, act, Go, JDK 21, Node.js + pnpm, Python 3, rustup, GCC, Clang, CMake, Ninja, pkg-config, Dart, Flutter, PHP, Zig, Android Studio, android-tools, grpc-tools, tokei, claude-code |
 | Security | KeePassXC, Proton Pass (desktop + CLI), Wireshark (via `programs.wireshark`) |
-| Office / Productivity | LibreOffice (fresh), LaTeX (texliveFull), Typst, Draw.io, Evince, Anki, GIMP, VLC, Handbrake, Joplin (Desktop + CLI) |
+| Office / Productivity | LibreOffice (fresh), LaTeX (texliveFull), Typst, Draw.io, Anki, GIMP, VLC, Handbrake, Joplin (Desktop + CLI) |
 | KDE Tools | Ark, Gwenview, KCalc, Konsole, Kate, Spectacle, Okular, Plasma System Monitor, Filelight, KFind |
 | System & Utilities | p7zip, hardinfo2, lm_sensors, dmidecode, ripgrep, rclone, hcloud (Hetzner CLI), Vorta (BorgBackup GUI) |
 | Network / VPN | OpenConnect |

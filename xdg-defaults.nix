@@ -7,16 +7,16 @@ in
   # ── Option A: legacy environment variables ──────────────────────────────────
   # Used by terminals, scripts, and programs that don't honour XDG MIME.
   environment.sessionVariables = {
-    BROWSER    = "brave";          # e.g. brave / google-chrome-stable / firefox
-    TERMINAL   = "gnome-terminal"; # e.g. gnome-terminal / xterm / alacritty
+    BROWSER    = "brave";
+    TERMINAL   = "konsole";
     EDITOR     = "vim";            # non-graphical editor
-    VISUAL     = "code";           # graphical editor (e.g. code / gedit)
+    VISUAL     = "code";           # graphical editor (e.g. code / kate)
     PAGER      = "less";
   };
 
   # ── Option B: XDG MIME default applications ─────────────────────────────────
   # Written to /etc/xdg/mimeapps.list; overridden per-user via
-  # ~/.config/mimeapps.list (Cinnamon "Open With…" writes there).
+  # ~/.config/mimeapps.list (KDE "Open With…" writes there).
   xdg.mime.defaultApplications = lib.mkMerge [
     (bindMimes "brave-browser.desktop" [
       "text/html" "x-scheme-handler/http" "x-scheme-handler/https"
@@ -25,7 +25,7 @@ in
 
     (bindMimes "thunderbird.desktop" [ "x-scheme-handler/mailto" "message/rfc822" ])
 
-    (bindMimes "org.gnome.Evince.desktop" [ "application/pdf" "application/x-pdf" ])
+    (bindMimes "org.kde.okular.desktop" [ "application/pdf" "application/x-pdf" ])
 
     (bindMimes "impress.desktop" [
       "application/vnd.ms-powerpoint"
@@ -60,15 +60,16 @@ in
 
     (bindMimes "code.desktop" [ "text/plain" "text/x-script.python" "application/json" "application/xml" ])
 
-    { "inode/directory" = "nemo.desktop"; }
+    { "inode/directory" = "org.kde.dolphin.desktop"; }
   ];
 
   # ── xdg-utils: makes xdg-open / xdg-email / xdg-mime work correctly ────────
   xdg.portal = {
     enable = true;
-    # GTK portal is needed by Flatpak apps and for file-open dialogs.
+    # The KDE portal (added by the Plasma module) is preferred; GTK is the fallback
+    # for Flatpak apps and anything the KDE portal does not implement.
     extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
-    # Tell the portal which DE is running so it picks the right implementation.
-    config.common.default = "gtk";
+    # Preference order of portal backends.
+    config.common.default = [ "kde" "gtk" ];
   };
 }

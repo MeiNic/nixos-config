@@ -55,7 +55,6 @@
       texliveFull        # LaTeX with full package collection
       typst              # Modern markup-based typesetting system
       drawio
-      evince             # PDF viewer
       anki               # Flashcard learning
       gimp
       vlc

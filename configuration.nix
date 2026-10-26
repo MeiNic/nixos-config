@@ -116,7 +116,8 @@ in
 
 
   # ── Virtualisation ─────────────────────────────────────────────────────────
-  # Docker's data-root lives on the data vg, not the root filesystem.
+  # Docker's data-root is the default /var/lib/docker, which is the @docker
+  # btrfs subvolume on the shared partition (filesystems.nix), not the root fs.
   virtualisation.docker = {
     enable = true;
     autoPrune.enable = true;
@@ -126,7 +127,7 @@ in
       default-address-pools = [
         { base = "172.30.0.0/16"; size = 24; }
       ];
-      data-root = "/data/docker";
+      data-root = "/var/lib/docker";
       log-driver = "json-file";
       log-opts = {
         max-size = "100m";
