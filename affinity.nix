@@ -142,5 +142,7 @@ EOF
   '';
 in
 {
-  environment.systemPackages = [ pkgs.winetricks affinity-setup affinity-winefix affinity-scale affinity ];
+  # `wine` is also the general-purpose one on PATH: the installer step
+  # (`wine <installer>.exe`) must run the same build that created the prefix.
+  environment.systemPackages = [ wine pkgs.winetricks affinity-setup affinity-winefix affinity-scale affinity ];
 }

@@ -47,7 +47,7 @@ in
     "pcie_aspm=powersupersave"
   ];
 
-  # NTFS userspace driver
+  # NTFS userspace driver (also puts ntfs3g on PATH)
   boot.supportedFilesystems = [ "ntfs" ];
 
   # ── Power Management ───────────────────────────────────────────────────────
@@ -109,7 +109,7 @@ in
 
   # ── Logitech Peripherals ───────────────────────────────────────────────────
   hardware.logitech.wireless.enable         = true;  # udev rules for Unifying/Bolt receivers
-  hardware.logitech.wireless.enableGraphical = true;  # auto-start Solaar in tray
+  hardware.logitech.wireless.enableGraphical = true;  # installs Solaar + auto-starts it in tray
 
   # ── Bluetooth ──────────────────────────────────────────────────────────────
   hardware.bluetooth.enable      = true;
@@ -147,7 +147,6 @@ in
     yubikey-manager
     linuxPackages_latest.turbostat   # CPU power/frequency stats (matches active kernel)
     btop
-    ntfs3g
     btrfs-assistant   # BTRFS GUI (snapshots, subvols)
     duf               # modern df replacement
     fastfetch         # system info

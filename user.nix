@@ -56,14 +56,9 @@
       gimp
       vlc
       handbrake
-      kdePackages.ark              # archive manager (zip, tar, 7z, rar)
-      kdePackages.gwenview         # image viewer
+      # Konsole, Kate, Okular, Gwenview, Ark, Spectacle and System Monitor come
+      # with Plasma 6 (services.desktopManager.plasma6) — not listed here.
       kdePackages.kcalc            # calculator
-      kdePackages.konsole          # terminal emulator
-      kdePackages.kate             # text editor
-      kdePackages.spectacle        # screenshot tool
-      kdePackages.okular           # document / PDF viewer
-      kdePackages.plasma-systemmonitor  # system monitor
       kdePackages.filelight        # disk usage analyzer
       kdePackages.kfind            # file search
       joplin-desktop     # Note-App
@@ -83,16 +78,12 @@
       # ── CLI Utilities ───────────────────────────────────────────────────
       ripgrep            # rg: fast grep replacement used by editors/scripts
 
-      # ── Windows Compatibility ────────────────────────────────────────────
-      wineWow64Packages.stable  # run .exe files; 64-bit Wine (upstream preferred)
-
       # ── Languages ───────────────────────────────────────────────────────
       zig                # Zig toolchain (compiler + build system)
 
       # ── Misc ────────────────────────────────────────────────────────────
       discord
       ausweisapp
-      solaar             # Logitech device manager
       proton-pass
       proton-pass-cli
       spotify

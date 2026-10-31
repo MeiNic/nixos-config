@@ -4,7 +4,7 @@
 { config, pkgs, lib, utils, ... }:
 
 let
-  inherit (import ./settings.nix) user usbDevice usbMount;
+  inherit (import ./settings.nix) user usbDevice usbMount knownHostsFile;
 
   # Shared by both repos.
   passphraseFile = config.sops.secrets.offsite-backup-passphrase.path;
@@ -13,7 +13,6 @@ let
   storageBoxUser = (import ../secrets/personal.nix).offsiteStorageBoxUser;
   storageBoxHost = "${storageBoxUser}.your-storagebox.de";
   sshKeyFile     = config.sops.secrets.offsite-backup-ssh-key.path;
-  knownHostsFile = "/etc/nixos/secrets/hetzner-storagebox-known_hosts";
 
   # /var/lib/sops-nix holds the age key, which is in no snapshot.
   backupPaths = [ "/home/${user}" "/etc/nixos" "/var/lib/sops-nix" ];

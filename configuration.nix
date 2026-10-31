@@ -110,15 +110,6 @@ in
     openFirewall = true;
   };
 
-  # ── Printing ───────────────────────────────────────────────────────────────
-  services.printing.enable = true;
-  services.printing.drivers = [
-    pkgs.gutenprint
-    pkgs.mfcj470dwlpr           # Brother MFC-J470DW LPR driver (compatible with J497DW)
-    pkgs.mfcj470dw-cupswrapper  # CUPS wrapper for the above
-  ];
-
-
   # ── Virtualisation ─────────────────────────────────────────────────────────
   virtualisation.docker = {
     enable = true;
