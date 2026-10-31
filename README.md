@@ -60,7 +60,7 @@ sudo systemctl start android-backup-auto   # test with the phone connected
 ### Backup & Snapshot Management
 
 ```bash
-backup-status                      # Overview: timers, btrbk snapshots, Borg drives
+backup-status                      # Overview: timers, btrbk snapshots, offsite + USB Borg state
 
 # btrbk snapshots (hourly)
 ls /.snapshots
@@ -122,7 +122,14 @@ filesystems.nix            ← btrfs subvolume mounts on the shared LUKS partiti
 desktop.nix                ← SDDM, KDE Plasma 6, PipeWire, printing drivers, fprintd daemon, fonts
 user.nix                   ← User account, packages, Fish shell + plugins (+ nixos-rebuild abbreviation)
 git-ssh.nix                ← Git config, SSH client config + allowed signers, GPG agent, sshd
-backup.nix                 ← btrbk snapshots + BorgBackup to USB drives + backup-status helper
+backup/                    ← see § Backup
+  default.nix              ← imports + backup-status
+  settings.nix             ← shared values (user, snapshot dir, USB partition)
+  snapshots.nix            ← btrbk snapshots
+  borg.nix                 ← Borg jobs: Storage Box (AC + ethernet) and USB drive (AC + drive)
+  borg-job.sh              ← script both Borg jobs run (pause/resume, notifications)
+  borg-excludes.txt        ← Borg exclude patterns
+  backup-status.sh         ← backup-status overview
 android-backup.nix         ← Android phone → Hetzner Storage Box (open-android-backup + rclone SFTP)
 xdg-defaults.nix           ← Default applications (MIME types, BROWSER/EDITOR vars, xdg-portal)
 security-auth.nix          ← PAM: YubiKey (PIV) or password+fingerprint lock screen; fingerprint never a sole factor
@@ -146,7 +153,6 @@ certs/                     ← eduroam client cert + key (*.pem, gitignored) - s
 patches/
   open-android-backup-nixos-unattended-fixes.patch ← see § Android Backup
 
-backup-status-patch.py     ← One-time script that added backup-status to backup.nix (already applied)
 
 ```
 
@@ -197,7 +203,7 @@ The root filesystem is its own btrfs on `crypt_nixos` (defined in `hardware-conf
 | `/etc/nixos` | `@configs` | This repo — git-managed, owned by `nico` |
 | `/var/lib/docker` | `@docker` | Docker data (`data-root = /var/lib/docker`, btrfs storage driver) |
 | `/var/lib/flatpak` | `@flatpak` | Flatpak apps |
-| `/.snapshots` | `@snapshots` | btrbk snapshot target (mounted from `backup.nix`) |
+| `/.snapshots` | `@snapshots` | btrbk snapshot target (mounted from `backup/snapshots.nix`) |
 
 > **Important:** VS Code or your file manager may show `/etc/nixos` as a mountable/unmountable volume — **do not unmount it while the system is running**. It *is* the config repo, and `~/nixos-config` points at it.
 
@@ -268,7 +274,7 @@ xdg-mime query default application/pdf
 | Security | KeePassXC, Proton Pass (desktop + CLI), Wireshark (via `programs.wireshark`) |
 | Office / Productivity | LibreOffice (fresh), LaTeX (texliveFull), Typst, Draw.io, Anki, GIMP, VLC, Handbrake, Joplin (Desktop + CLI) |
 | KDE Tools | Ark, Gwenview, KCalc, Konsole, Kate, Spectacle, Okular, Plasma System Monitor, Filelight, KFind |
-| System & Utilities | p7zip, hardinfo2, lm_sensors, dmidecode, ripgrep, rclone, hcloud (Hetzner CLI), Vorta (BorgBackup GUI) |
+| System & Utilities | p7zip, hardinfo2, lm_sensors, dmidecode, ripgrep, rclone, hcloud (Hetzner CLI) |
 | Network / VPN | OpenConnect |
 | AI / ML | Ollama |
 | Windows Compatibility | Wine (64-bit stable, for Affinity) |
@@ -366,68 +372,114 @@ iconv -f UTF-16LE -t UTF-8 ~/my_secret_key.asc | tail -c +4 | tr -d '\r' | gpg -
 
 ---
 
-## Backup (`backup.nix`)
+## Backup (`backup/`)
 
-Two independent layers. The Android phone backup is a separate pipeline (see § Android Backup).
+Three independent layers: local snapshots, an offsite Borg repo, and a second Borg repo on a USB hard drive. The Android phone backup is a separate pipeline (see § Android Backup).
 
-### Layer 1 — btrfs Snapshots (local, always active)
+### Layer 1 — btrfs Snapshots (`backup/snapshots.nix`, local, always active)
 
 - **Tool:** btrbk (`btrbk.service` + hourly `btrbk.timer`, `Persistent=true`)
 - **Location:** `/.snapshots/` (`@snapshots` subvolume)
 - **Retention:** at least 2 h, then 24 hourly / 14 daily / 8 weekly / 12 monthly
-- **Subvolumes snapshotted:** `@home`, `@configs`, `@nix`, `@docker`, `@flatpak` — not the root filesystem
+- **Subvolumes snapshotted:** `@home`, `@configs` — not the root filesystem, and not `@nix`, `@docker` or `@flatpak` (all rebuildable; snapshots would only keep garbage-collected store paths, stale Docker metadata and old Flatpak runtimes on disk)
 
-### Layer 2 — BorgBackup to USB Drives
+### Layers 2 + 3 — Borg to the Storage Box and to the USB drive (`backup/borg.nix`, `backup/borg-job.sh`)
 
-> **Not currently set up on this machine** — superseded by a separate Vorta-managed Borg backup outside this config. `secrets/borg-passphrase` doesn't exist, so `borgbackup-job-usb-a` / `borgbackup-job-usb-manual` will fail until it's created per the setup steps below.
+Replaces the old Vorta setup. Everything is declared in the config; nothing is configured in a GUI. Two jobs run the same script (same paths, excludes, retention and checks) into two independent repos:
 
-| | Drive A (`borgbackup-job-usb-a`) | Drive B (`borgbackup-job-usb-manual`) |
+| | `offsite-backup` | `usb-backup` |
 |---|---|---|
-| Trigger | Timer, daily at 02:30 (`Persistent=true` — catches up after missed runs) | Manual only: `sudo systemctl start borgbackup-job-usb-manual` |
-| Drive absent | Exits cleanly, no failure logged | Same |
+| **Target** | Own Hetzner Storage Box sub-account (name in gitignored `secrets/personal.nix` → `offsiteStorageBoxUser`), repo `./borg-repo`, `--remote-path borg-1.4` | `borg-repo/` on the `backup` partition (btrfs, not LUKS) of the external 1 TB drive, found by UUID (`usbDevice`). Mounted at `/mnt/backup-hdd` only while the job runs |
+| **Runs when** | AC power **and** a wired (ethernet) NetworkManager device is connected | AC power **and** the drive is connected |
+| **Started by** | `offsite-backup.timer` (every 10 min) | `usb-backup.timer` (every 10 min), and right away when the drive is plugged in |
+| **Extra secrets** | `offsite-backup-ssh-key` in `secrets.yaml`; host key pinned in `secrets/hetzner-storagebox-known_hosts` | — |
 
-Both use `auto,zstd` compression and checkpoint every 5 minutes (interrupted backups resume).
+Common to both:
+
+| | |
+|---|---|
+| **Encryption** | `repokey-blake2`. One passphrase for both repos (each has its own key): `offsite-backup-passphrase` in `secrets.yaml` (sops) |
+| **When** | A start does nothing unless the last success is >24 h old (or a run is unfinished), the last failure is >1 h old, and the job's conditions hold |
+| **Pause / resume** | The script re-checks the conditions every 5 s. If they stop holding it stops borg (SIGTERM, progress up to the last 3-min checkpoint stays in the repo) and exits cleanly; the next start that passes resumes the same archive. Pulling the USB drive mid-run is a pause, not a failure |
+| **Sleep** | Suspend is inhibited while a job runs |
+| **Notifications** | Desktop notification on success (USB: the drive is unmounted and can be unplugged), on failure, and — low urgency — on pause. Via the user's session bus; silently skipped if nobody is logged in |
+| **Retention** | 7 daily, 4 weekly, 6 monthly; `borg compact` afterwards |
+| **Integrity** | Every 30 days, after a successful backup: `borg check --repository-only` (Storage Box: runs server-side, nothing is downloaded; USB: reads the repo once). It runs before the success notification. Problems → failure notification. Interrupted checks are retried after the next backup; `backup-status` shows the last pass |
 
 | Included | Excluded |
 |---|---|
-| `/home`, `/etc/nixos`, `/var/lib/docker`, `/var/lib/flatpak` | `/.cache`, `__pycache__`, `.npm`, `.cargo/registry`, `.rustup`, Trash, `docker/overlay2` |
+| `/home/nico`, `/etc/nixos` (with gitignored `secrets/`), `/var/lib/sops-nix` (the age key) | Build output at any depth (`node_modules`, `__pycache__`, `.venv`, `.gradle`, `.dart_tool`, Cargo `target/` via `CACHEDIR.TAG`, …), browser/Electron caches, `~/.cache`, `~/.cargo/registry`, `~/.rustup`, `~/.npm`, `~/.vscode/extensions`, Android SDK/AVDs, Trash, the rclone mounts. Any directory containing a `.nobackup` file is skipped too |
 
-#### USB Drive Setup (one time per drive)
+The exact list is `backup/borg-excludes.txt`. Wine/Affinity prefixes and the `~/wine` installers are **excluded** (their Documents/Desktop/Pictures/Downloads are symlinks into `~`, so user files are still covered; Affinity settings in the prefix's `AppData` are not). `~/Applications` is **included**.
 
-```bash
-# 1. Format and label the partition
-sudo mkfs.ext4 -L borg-usb-a /dev/sdX1
-sudo mkfs.ext4 -L borg-usb-b /dev/sdX1
-
-# 2. Create mount points
-sudo mkdir -p /mnt/borg-usb-a /mnt/borg-usb-b
-
-# 3. Initialise Borg repositories (drive must be plugged in)
-export BORG_PASSPHRASE="your-strong-passphrase"
-sudo borg init --encryption=repokey-blake2 /mnt/borg-usb-a/borg-repo
-sudo borg init --encryption=repokey-blake2 /mnt/borg-usb-b/borg-repo
-
-# 4. Store the passphrase
-sudo mkdir -p /etc/nixos/secrets
-echo "your-strong-passphrase" | sudo tee /etc/nixos/secrets/borg-passphrase
-sudo chmod 600 /etc/nixos/secrets/borg-passphrase
-```
-
-#### Useful Borg Commands
+#### One-time setup — offsite
 
 ```bash
-# Check last backup status
-sudo systemctl status borgbackup-job-usb-a
-sudo systemctl status borgbackup-job-usb-manual
+# 1. Generate a dedicated key (private key never leaves a scratch dir)
+ssh-keygen -t ed25519 -N '' -C nixos-offsite-backup -f /tmp/offsite_backup_key
 
-# List archives on a drive
-sudo BORG_PASSPHRASE=$(cat /etc/nixos/secrets/borg-passphrase) \
-  borg list /mnt/borg-usb-a/borg-repo
+# 2. Install the public key on the sub-account (prompts for its password once),
+#    after pinning the host key - see the checks in the setup script
+cat /tmp/offsite_backup_key.pub | ssh -p23 <sub-account>@<sub-account>.your-storagebox.de install-ssh-key
 
-# Restore a specific file
-sudo BORG_PASSPHRASE=$(cat /etc/nixos/secrets/borg-passphrase) \
-  borg extract /mnt/borg-usb-a/borg-repo::archive-name path/to/file
+# 3. Store key + a generated passphrase in secrets.yaml (see § Secrets for the sudo env wrapper):
+#    '["offsite-backup-ssh-key"]' and '["offsite-backup-passphrase"]'
+# 4. Save the passphrase in a password manager - with a lost laptop it is the only thing
+#    you need besides the sub-account password (the age key and secrets are IN the backup)
+sudo env SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt sops -d --extract '["offsite-backup-passphrase"]' /etc/nixos/secrets.yaml
+
+# 5. sudo nixos-rebuild switch - the first run starts at the next tick once on AC + ethernet
 ```
+
+#### One-time setup — USB drive
+
+Nothing to do besides plugging it in: the repo is created on the first run. One constraint: borg refuses to create a repo *inside* another one, so the partition root must not be a borg repo itself. The old Vorta repo that sat there was deleted before the first run. For a different drive: create a btrfs partition, put its UUID into `usbDevice` in `backup/settings.nix`, rebuild, plug it in.
+
+#### Key export (both repos)
+
+Both repos are initialised automatically on their first run. Afterwards, export each repo key once and store it next to the passphrase. In `repokey` mode the key lives inside the repo; the export (itself passphrase-protected) is the fallback if that part of the repo is ever damaged:
+
+```bash
+# Storage Box
+sudo bash -c 'export BORG_REMOTE_PATH=borg-1.4 BORG_RSH="ssh -i /run/secrets/offsite-backup-ssh-key -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/nixos/secrets/hetzner-storagebox-known_hosts"; borg key export --paper ssh://<sub-account>@<sub-account>.your-storagebox.de:23/./borg-repo'
+
+# USB drive (connected)
+sudo mount /dev/disk/by-uuid/246f76d5-4bfd-48d6-8ada-e8c131709ba6 /mnt/backup-hdd
+sudo borg key export --paper /mnt/backup-hdd/borg-repo
+sudo umount /mnt/backup-hdd
+```
+
+#### Daily use
+
+```bash
+backup-status                                 # per job: last success, running/unfinished run, last check; power/ethernet/drive state
+sudo systemctl start offsite-backup           # run now (still needs its conditions and >24 h since last success)
+sudo systemctl start usb-backup               #   same for the USB drive
+sudo rm /var/lib/offsite-backup/last-success  # force the next start to run a fresh backup (same for usb-backup)
+journalctl -fu offsite-backup                 # or usb-backup
+
+# Browse / restore from the Storage Box (root shell so the sops secrets are readable)
+sudo -i
+export BORG_REMOTE_PATH=borg-1.4 BORG_PASSCOMMAND='cat /run/secrets/offsite-backup-passphrase'
+export BORG_RSH='ssh -i /run/secrets/offsite-backup-ssh-key -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/nixos/secrets/hetzner-storagebox-known_hosts'
+REPO=ssh://<sub-account>@<sub-account>.your-storagebox.de:23/./borg-repo
+borg list $REPO
+borg extract $REPO::<archive> home/nico/Documents/some/file     # paths have no leading slash
+borg mount $REPO::<archive> /mnt                                # needs fuse; umount when done
+
+# Browse / restore from the USB drive - mount it at the job's own mount point;
+# a running usb-backup then uses that mount and leaves it alone
+sudo -i
+mount /dev/disk/by-uuid/246f76d5-4bfd-48d6-8ada-e8c131709ba6 /mnt/backup-hdd
+export BORG_PASSCOMMAND='cat /run/secrets/offsite-backup-passphrase'
+borg list /mnt/backup-hdd/borg-repo
+borg extract /mnt/backup-hdd/borg-repo::<archive> home/nico/Documents/some/file
+umount /mnt/backup-hdd
+```
+
+#### Disaster recovery (laptop lost)
+
+You need the repo passphrase (password manager), plus either the USB drive or the sub-account password. From the drive: mount the `backup` partition on any Linux machine with borg 1.4 and `borg list` / `borg extract` its `borg-repo/`. From the Storage Box: generate a new key, install it with `install-ssh-key`, point `BORG_RSH` at it, and `borg list` / `borg extract` as above. `/var/lib/sops-nix/key.txt` and `/etc/nixos/secrets/` are inside the archives (`var/lib/sops-nix`, `etc/nixos`).
 
 ---
 
@@ -518,7 +570,7 @@ sudo rclone lsf ":sftp:android-backup" --sftp-host u643857-sub4.your-storagebox.
 
 ### Failure visibility
 
-No alerting pattern (e.g. ntfy/apprise/mail) exists elsewhere in this config, so this doesn't invent one — failures surface as a failed systemd unit and journal output only (`systemctl status android-backup-auto`). `borgmatic` (installed by `backup.nix`) already pulls in `apprise` as a dependency, if you want to wire up notifications later.
+No alerting pattern (e.g. ntfy/apprise/mail) exists elsewhere in this config, so this doesn't invent one — failures surface as a failed systemd unit and journal output only (`systemctl status android-backup-auto`). (`backup/borg.nix` is the one exception: it sends desktop notifications itself.)
 
 ---
 
@@ -561,12 +613,11 @@ The `secrets/` directory is gitignored (except `*.template` files). These can't 
 
 | File | Purpose |
 |---|---|
-| `personal.nix` | Git name, email, SSH signing public key (loaded by `git-ssh.nix`) — not sensitive, and baked into a generated `/etc/ssh/allowed_signers` at build time |
+| `personal.nix` | Git name, email, SSH signing public key (loaded by `git-ssh.nix`) and the offsite-backup Storage Box sub-account (loaded by `backup/borg.nix`) — not sensitive, and baked into a generated `/etc/ssh/allowed_signers` at build time |
 | `luks-uuids.nix` | LUKS UUID of the `shared` partition (loaded by `hardware.nix`) — needed in initrd, long before sops could decrypt anything |
 | `eduroam.nix` | eduroam EAP identity and home RADIUS server pin (loaded by `eduroam.nix`) — spliced into a NetworkManager profile at build time |
 | `hetzner-storagebox-known_hosts` | Pinned SFTP host key for the Storage Box — not actually secret (SSH host keys are public; pinning is for integrity, not confidentiality), just never got promoted out of this directory |
 
-`borg-passphrase` (for `backup.nix`'s USB BorgBackup layer) isn't set up — see § Backup.
 
 ---
 

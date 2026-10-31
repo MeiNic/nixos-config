@@ -36,4 +36,8 @@ in
   };
   sops.secrets.android-backup-env = { };
   sops.secrets.hetzner-storagebox-key = { };
+  # backup/borg.nix: Borg repo passphrase (offsite + USB repo) + SSH key of the
+  # offsite Storage Box sub-account
+  sops.secrets.offsite-backup-passphrase = { };
+  sops.secrets.offsite-backup-ssh-key = { };
 }

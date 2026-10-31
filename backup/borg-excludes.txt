@@ -1,0 +1,62 @@
+# Patterns for `borg create --exclude-from`; `sh:` paths have no leading slash.
+
+# build output
+sh:**/node_modules
+sh:**/__pycache__
+sh:**/.venv
+sh:**/.pytest_cache
+sh:**/.mypy_cache
+sh:**/.tox
+sh:**/.dart_tool
+sh:**/.gradle
+sh:**/.next
+sh:**/.nuxt
+sh:**/.angular
+sh:**/.svelte-kit
+sh:**/.parcel-cache
+sh:**/.turbo
+sh:**/target/debug
+sh:**/target/release
+sh:etc/nixos/result
+
+# browser/Electron caches
+sh:**/GPUCache
+sh:**/ShaderCache
+sh:**/DawnCache
+sh:**/Code Cache
+sh:**/Cache_Data
+sh:**/CacheStorage
+sh:**/CachedData
+sh:home/nico/.config/**/Cache
+sh:home/nico/.local/share/**/Cache
+
+# package managers, toolchains, SDKs
+sh:home/nico/.cache
+sh:home/nico/.cargo/registry
+sh:home/nico/.cargo/git
+sh:home/nico/.rustup
+sh:home/nico/.npm
+sh:home/nico/.pnpm-store
+sh:home/nico/.local/share/pnpm
+sh:home/nico/.pub-cache
+sh:home/nico/.m2/repository
+sh:home/nico/.dartServer
+sh:home/nico/.vscode/extensions
+sh:home/nico/Android/Sdk
+sh:home/nico/.android/avd
+sh:home/nico/.ollama/models
+sh:home/nico/.local/share/containers
+sh:home/nico/.var/app/*/cache
+sh:home/nico/.local/share/Trash
+
+# Wine prefixes (rebuildable via affinity.nix; their user folders are symlinks into ~)
+sh:home/nico/.wine
+sh:home/nico/wine
+sh:home/nico/.affinity
+sh:home/nico/.affinity-appimage-wineprefix
+sh:home/nico/.AffinityLinux-Appimage
+
+# rclone mounts
+sh:home/nico/OneDrive
+sh:home/nico/StorageBox
+sh:home/nico/pictures-smartphone
