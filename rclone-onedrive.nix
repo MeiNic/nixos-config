@@ -1,16 +1,25 @@
-# =============================================================================
-# Cloud storage mounts via rclone (parameterized for multiple remotes)
-# =============================================================================
+# Cloud storage mounts via rclone (for multiple remotes)
 # One-time manual setup required: configure remotes via `rclone config`
 
 { pkgs, ... }:
 
 let
   user = "nico";
+  sftpDefaults = {
+    streams = 2;
+    transfers = 4;
+    extraArgs = "--sftp-connections 6 --contimeout 15s";
+  };
+  cloudDefaults = {
+    streams = 4;
+    transfers = 8;
+    extraArgs = "";
+  };
+
   remotes = [
-    { name = "onedrive"; path = "/home/${user}/OneDrive"; }
-    { name = "storagebox"; path = "/home/${user}/StorageBox"; }
-    { name = "pictures-smartphone"; path = "/home/${user}/pictures-smartphone"; }
+    ({ name = "onedrive"; path = "/home/${user}/OneDrive"; } // cloudDefaults)
+    ({ name = "storagebox"; path = "/home/${user}/StorageBox"; } // sftpDefaults)
+    ({ name = "pictures-smartphone"; path = "/home/${user}/pictures-smartphone"; } // sftpDefaults)
   ];
 
   mkRcloneService = remote: {
@@ -33,14 +42,15 @@ let
           --vfs-cache-max-age 48h \
           --vfs-cache-min-free-space 5G \
           --vfs-read-chunk-size 128M \
-          --vfs-read-chunk-streams 4 \
+          --vfs-read-chunk-streams ${toString remote.streams} \
           --vfs-fast-fingerprint \
           --dir-cache-time 24h \
           --poll-interval 1m \
           --attr-timeout 1h \
           --buffer-size 32M \
-          --transfers 8 \
+          --transfers ${toString remote.transfers} \
           --timeout 30s \
+          ${remote.extraArgs} \
           --no-gzip-encoding \
           --daemon
       '';
@@ -48,8 +58,6 @@ let
       Restart    = "on-failure";
       RestartSec = 10;
       Environment = "PATH=/run/wrappers/bin:/run/current-system/sw/bin";
-      # Keep background cache fill/eviction from starving desktop I/O when a
-      # large folder is opened (the actual source of "not responding" hangs).
       Nice = 10;
       IOSchedulingClass = "best-effort";
       IOSchedulingPriority = 7;

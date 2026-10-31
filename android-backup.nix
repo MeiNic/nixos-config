@@ -10,9 +10,7 @@
 # android-backup-manual: also contacts (needs a physical tap of "Export Data"
 # on the phone - not automatable) - run yourself: systemctl start android-backup-manual
 #
-# No sops-nix/agenix here; secrets follow backup.nix's existing convention
-# (borgPassphraseFile): plain root-owned files under secrets/, referenced
-# only by path and read at runtime, never imported into Nix.
+# Secrets (archive password, SSH key): sops-nix, see secrets.nix.
 { config, pkgs, lib, ... }:
 
 let

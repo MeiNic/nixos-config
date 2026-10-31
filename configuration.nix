@@ -1,12 +1,6 @@
 { pkgs, ... }:
 
 let
-  # For the nixos-unstable overlay below (claude-code, joplin-desktop): tracks
-  # whatever is current on the nixos-unstable channel. Requires the channel to
-  # actually be added on this machine:
-  #   sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos-unstable
-  #   sudo nix-channel --update
-  # then `sudo nix-channel --update` again whenever newer versions are wanted.
   nixosUnstable = <nixos-unstable>;
 in
 {
@@ -18,7 +12,7 @@ in
     ./desktop.nix
     ./user.nix
     ./git-ssh.nix
-    ./backup.nix
+    ./backup
     ./android-backup.nix
     ./xdg-defaults.nix
     ./security-auth.nix
@@ -38,15 +32,25 @@ in
     # - joplin-desktop: nixos-26.05 doesn't backport app version bumps, only
     #   security/critical fixes, so stable is stuck on 3.5.13 from branch-off.
     #   Drop it from here once the stable channel catches up.
+    # - zotero: stable's 9.0.6 is built on a Firefox ESR that Zotero 9 wasn't
+    #   updated for; indexing a stored HTML attachment hits "Illegal load attempt
+    #   of blob: URL from web" and segfaults the parent (NixOS/nixpkgs#561292).
+    #   Fixed in 10.0.2+. Drop it from here once stable ships Zotero 10.
     (final: prev:
       let
         pkgsUnstable = import nixosUnstable {
           system = prev.stdenv.hostPlatform.system;
           config.allowUnfree = true;
+          # Zotero 10 embeds Firefox ESR 140, EOL since 2026-10-13. Scoped to this
+          # one package and to the unstable import only.
+          config.permittedInsecurePackages = [
+            "firefox-esr-140-bin-unwrapped-140.17.0esr"
+          ];
         };
       in {
         claude-code = pkgsUnstable.claude-code;
         joplin-desktop = pkgsUnstable.joplin-desktop;
+        zotero = pkgsUnstable.zotero;
         vscode-extensions = prev.vscode-extensions // {
           anthropic = (prev.vscode-extensions.anthropic or { }) // {
             claude-code = pkgsUnstable.vscode-extensions.anthropic.claude-code;
@@ -116,8 +120,6 @@ in
 
 
   # ── Virtualisation ─────────────────────────────────────────────────────────
-  # Docker's data-root is the default /var/lib/docker, which is the @docker
-  # btrfs subvolume on the shared partition (filesystems.nix), not the root fs.
   virtualisation.docker = {
     enable = true;
     autoPrune.enable = true;
@@ -133,7 +135,7 @@ in
         max-size = "100m";
         max-file = "10";
       };
-      live-restore = true;  # containers keep running if daemon restarts
+      live-restore = true;
     };
   };
 

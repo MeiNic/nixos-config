@@ -1,10 +1,7 @@
-# =============================================================================
 # User Account & Packages
-# =============================================================================
 { pkgs, ... }:
 
 {
-  # Define the main user account.
   users.users.nico = {
     isNormalUser = true;
     description  = "nico";
@@ -17,7 +14,7 @@
       thunderbird
       birdtray           # Thunderbird tray icon with unread count
       signal-desktop
-      zapzap             # WhatsApp client
+      zapzap
 
       # ── Browsers ────────────────────────────────────────────────────────
       brave
@@ -25,7 +22,6 @@
 
       # ── Development ─────────────────────────────────────────────────────
       gh
-      act
       go
       jdk21
       nodejs
@@ -52,6 +48,7 @@
 
       # ── Productivity & Office ───────────────────────────────────────────
       libreoffice-fresh
+      zotero
       texliveFull        # LaTeX with full package collection
       typst              # Modern markup-based typesetting system
       drawio
@@ -83,12 +80,8 @@
       rclone             # Mount/sync SharePoint, OneDrive-Business, OneDrive
       hcloud             # Hetzner Cloud CLI - manages Storage Box settings/snapshots/sub-accounts
 
-      # ── AI / ML ─────────────────────────────────────────────────────────
-      ollama
-
       # ── CLI Utilities ───────────────────────────────────────────────────
       ripgrep            # rg: fast grep replacement used by editors/scripts
-      vorta              # GUI frontend for BorgBackup (browse/restore archives)
 
       # ── Windows Compatibility ────────────────────────────────────────────
       wineWow64Packages.stable  # run .exe files; 64-bit Wine (upstream preferred)
