@@ -1,47 +1,11 @@
 # =============================================================================
-# Development Tooling: VSCode + Android/Flutter
+# VS Code + its full extension set
 # =============================================================================
-# VSCode itself, plus the whole extension set, is declared here so a fresh
-# install reproduces the same editor without clicking through the
-# marketplace. The Android bits let Flutter target the emulator from VSCode
-# without ever opening Android Studio again.
+# Declared here so a fresh install reproduces the same editor without
+# clicking through the marketplace.
 { pkgs, ... }:
 
 {
-  # ── Android SDK / emulator ──────────────────────────────────────────────────
-  # The SDK at ~/Android/Sdk (platform-tools, emulator, system images, and the
-  # "Medium_Phone_API_36.1" AVD) was already provisioned by Android Studio.
-  # use in commandline with "emulator -avd Medium_Phone_API_36.1" or "flutter emulators --launch Medium_Phone_API_36.1"
-  #
-  # cmdline-tools (sdkmanager/avdmanager/apkanalyzer) is NOT nix-managed here:
-  # nixpkgs' androidenv wrapper hardcodes its own --sdk_root into the nix
-  # store, ignoring $ANDROID_HOME, so it can't be pointed at this externally
-  # (Android-Studio-)managed SDK. It was instead extracted for real from the
-  # same official zip nixpkgs fetches (see chat history 2026-09-06) directly
-  # into ~/Android/Sdk/cmdline-tools/latest — plain mutable files, imperatively
-  # managed like the rest of this SDK.
-  environment.sessionVariables = {
-    ANDROID_HOME     = "$HOME/Android/Sdk";
-    ANDROID_SDK_ROOT = "$HOME/Android/Sdk";
-    PATH = [
-      "$HOME/Android/Sdk/cmdline-tools/latest/bin"  # sdkmanager/avdmanager
-      "$HOME/Android/Sdk/platform-tools"             # adb (SDK-matched version takes priority over android-tools)
-      "$HOME/Android/Sdk/emulator"                   # emulator
-      "$HOME/.cargo/bin"                             # cargo-installed binaries (ccusage)
-    ];
-  };
-
-  environment.systemPackages = [
-    pkgs.mesa-demos  # eglinfo/glxinfo — silences flutter doctor's Linux toolchain warning
-  ];
-
-  programs.nix-ld.libraries = with pkgs; [
-    libx11
-    libxext
-    libxcb
-  ];
-
-  # ── VSCode ───────────────────────────────────────────────────────────────────
   # Only VS Code package in this config — do not also add the plain `vscode`
   # package elsewhere, or it would shadow this extension-bundled one on PATH.
   #

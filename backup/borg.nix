@@ -4,7 +4,7 @@
 { config, pkgs, lib, utils, ... }:
 
 let
-  inherit (import ./settings.nix) user usbDevice usbMount knownHostsFile;
+  inherit (import ../settings.nix) user usbDevice usbMount storageBoxKnownHosts;
 
   # Shared by both repos.
   passphraseFile = config.sops.secrets.offsite-backup-passphrase.path;
@@ -29,7 +29,7 @@ let
       hooks  = ''
         condition() { nmcli -t -f TYPE,STATE device 2>/dev/null | grep -qx 'ethernet:connected'; }
         export BORG_REMOTE_PATH=borg-1.4
-        export BORG_RSH="ssh -i ${sshKeyFile} -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHostsFile} -o ServerAliveInterval=30 -o ServerAliveCountMax=4"
+        export BORG_RSH="ssh -i ${sshKeyFile} -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${storageBoxKnownHosts} -o ServerAliveInterval=30 -o ServerAliveCountMax=4"
       '';
       packages = with pkgs; [ openssh networkmanager ];
       unit = {

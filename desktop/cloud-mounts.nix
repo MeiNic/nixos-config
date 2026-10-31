@@ -4,7 +4,7 @@
 { pkgs, ... }:
 
 let
-  user = "nico";
+  inherit (import ../settings.nix) user;
   sftpDefaults = {
     streams = 2;
     transfers = 4;

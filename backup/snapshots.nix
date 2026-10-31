@@ -1,8 +1,9 @@
-# Hourly btrfs snapshots of @home and @configs (btrbk).
+# Hourly btrfs snapshots of @home and @configs (btrbk). The @snapshots mount
+# itself is in system/filesystems.nix.
 { pkgs, ... }:
 
 let
-  inherit (import ./settings.nix) snapshotMount;
+  inherit (import ../settings.nix) snapshotMount;
 
   # @nix, @docker and @flatpak are left out on purpose: all rebuildable.
   btrbkConfig = pkgs.writeText "btrbk.conf" ''
@@ -22,12 +23,6 @@ let
   '';
 in
 {
-  fileSystems."${snapshotMount}" = {
-    device = "/dev/mapper/shared";
-    fsType = "btrfs";
-    options = [ "subvol=@snapshots" "compress=zstd" "noatime" ];
-  };
-
   environment.systemPackages = [ pkgs.btrbk ];
 
   systemd.services.btrbk = {

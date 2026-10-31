@@ -1,25 +1,26 @@
 # =============================================================================
 # Android phone backup → Hetzner Storage Box
 # =============================================================================
-# open-android-backup (vendored + patched, see ./patches/) makes a
-# password-encrypted 7z archive here, then rclone uploads it over SFTP to a
-# Hetzner Storage Box; the local copy is deleted once uploaded (no local
+# open-android-backup (vendored + patched, see the .patch next to this file)
+# makes a password-encrypted 7z archive here, then rclone uploads it over SFTP
+# to a Hetzner Storage Box; the local copy is deleted once uploaded (no local
 # retention) and the remote is pruned to the last N archives.
 #
 # android-backup-auto: apps + storage, fired by udev on USB connect.
 # android-backup-manual: also contacts (needs a physical tap of "Export Data"
 # on the phone - not automatable) - run yourself: systemctl start android-backup-manual
 #
-# Secrets (archive password, SSH key): sops-nix, see secrets.nix.
+# Secrets (archive password, SSH key): sops-nix, see security/secrets.nix.
 { config, pkgs, lib, ... }:
 
 let
-  inherit (import ./backup/settings.nix) knownHostsFile;
+  inherit (import ../settings.nix) user storageBoxKnownHosts;
   archivePasswordFile = config.sops.secrets.android-backup-env.path;
   sshKeyFile           = config.sops.secrets.hetzner-storagebox-key.path;
 
-  storageBoxUser = "u643857-sub4";
-  storageBoxHost = "u643857-sub4.your-storagebox.de";
+  # Gitignored, because this repo is public.
+  storageBoxUser = (import ../secrets/personal.nix).androidStorageBoxUser;
+  storageBoxHost = "${storageBoxUser}.your-storagebox.de";
   storageBoxPort = 23;
   remotePath     = "android-backup"; # no leading slash - Hetzner requirement
   keepRemote     = 5;                # archives kept on the Storage Box
@@ -50,8 +51,8 @@ let
     # 4 runtime fixes for headless/unattended operation (whiptail checklist
     # hang, a read-only-store permission bug, an empty-password bug in the
     # 7z encryption step, and a set -e-swallowed low-space check) - see
-    # patches/open-android-backup-nixos-unattended-fixes.patch for details.
-    patches = [ ./patches/open-android-backup-nixos-unattended-fixes.patch ];
+    # open-android-backup-nixos-unattended-fixes.patch for details.
+    patches = [ ./open-android-backup-nixos-unattended-fixes.patch ];
 
     dontBuild = true;
     installPhase = ''
@@ -85,7 +86,7 @@ let
     "--sftp-port ${toString storageBoxPort}"
     "--sftp-user ${storageBoxUser}"
     "--sftp-key-file ${sshKeyFile}"
-    "--sftp-known-hosts-file ${knownHostsFile}"
+    "--sftp-known-hosts-file ${storageBoxKnownHosts}"
     "--sftp-shell-type unix"
   ];
 
@@ -126,7 +127,7 @@ let
     "android-backup-${if includeContacts then "manual" else "auto"}.sh" ''
     set -euo pipefail
     mkdir -p "${stagingDir}"
-    chown -R nico:users "${stateDir}"
+    chown -R ${user}:users "${stateDir}"
     cd "${stateDir}"
 
     # backup.sh sources ./hooks.sh relative to CWD, not its own store path.
@@ -195,7 +196,7 @@ let
       # (persists fine - /home is a real subvolume, no impermanence here).
       # TERM=xterm: systemd's default TERM=dumb has no "clear" capability,
       # and backup.sh calls bare `clear` unconditionally under set -e.
-      Environment      = [ "HOME=/home/nico" "PATH=${androidBackupPath}" "TERM=xterm" ];
+      Environment      = [ "HOME=/home/${user}" "PATH=${androidBackupPath}" "TERM=xterm" ];
       EnvironmentFile  = archivePasswordFile;
       ExecStart        = "${mkAndroidBackupScript { inherit includeContacts; }}";
       # No cap: covers phone copy + compression + upload combined, and a 20G+

@@ -1,6 +1,12 @@
+# =============================================================================
+# Authentication: sudo, fingerprint daemon, YubiKey, PAM policy
+# =============================================================================
+# The YubiKey FIDO2 LUKS unlock happens in the initrd: system/boot.nix.
 { config, lib, pkgs, ... }:
 
 let
+  inherit (import ../settings.nix) user;
+
   pamLib = "${pkgs.pam}/lib/security";
   fpSo   = "${pkgs.fprintd}/lib/security/pam_fprintd.so";
   kwSo   = "${pkgs.kdePackages.kwallet-pam}/lib/security/pam_kwallet5.so";
@@ -52,6 +58,50 @@ let
 in
 
 {
+  # ── Sudo ───────────────────────────────────────────────────────────────────
+  security.sudo.enable = true;
+  security.sudo.execWheelOnly = false;
+
+  # Only nixos-rebuild still needs sudo – keep that NOPASSWD rule.
+  security.sudo.extraRules = [
+    {
+      users    = [ user ];
+      commands = [
+        {
+          command = "/run/current-system/sw/bin/nixos-rebuild *";
+          options = [ "NOPASSWD" ];
+        }
+      ];
+    }
+  ];
+
+  # ── Fingerprint Sensor ────────────────────────────────────────────────────
+  # We deliberately do NOT use `services.fprintd.enable`, because that flips
+  # NixOS's per-service `fprintAuth` default to true — adding the fingerprint as
+  # a *sole* auth factor to sudo, login, polkit, sshd, etc. Our security model
+  # (the PAM policy below) permits the fingerprint only as the mandatory 2nd
+  # factor at the KDE lock screen, never on its own. So we provision just the
+  # daemon (identical to what `enable` does) and leave the global `fprintAuth`
+  # at false.
+  systemd.packages       = [ pkgs.fprintd ];
+  services.dbus.packages = [ pkgs.fprintd ];
+  # fprintd CLI tools (fprintd-enroll/-list/-verify) are added to
+  # environment.systemPackages at the bottom.
+
+  # The Goodix MOC sensor gets stuck in fprintd's "suspended" state across a
+  # lid-close suspend: the resume signal races with the lock screen grabbing the
+  # device, so every identify fails instantly with "Cannot run while suspended"
+  # (looks like a spurious read with no finger on the sensor). Forcing fprintd to
+  # restart on resume clears the stuck state. try-restart is a no-op when fprintd
+  # has already deactivated (it is D-Bus activated), so there is nothing to clear.
+  powerManagement.resumeCommands = ''
+    ${pkgs.systemd}/bin/systemctl try-restart fprintd.service
+  '';
+
+  # ── YubiKey ────────────────────────────────────────────────────────────────
+  # Smart-card daemon, needed for PIV.
+  services.pcscd.enable = true;
+
   # FIDO2/U2F stays global: LUKS boot unlock, sudo, and TTY login still use it.
   security.pam.u2f = {
     enable   = true;
@@ -67,7 +117,8 @@ in
   # It also becomes an accepted factor for sudo / login / sddm.
   security.pam.p11.enable = true;
 
-  # Lock screen: Plasma 6 uses the `kde` service (not `kscreenlocker`).
+  # ── Lock Screen ────────────────────────────────────────────────────────────
+  # Plasma 6 uses the `kde` service (not `kscreenlocker`).
   security.pam.services.kde.text             = lib.mkForce kdeAuthText;
   security.pam.services.kde-fingerprint.text = lib.mkForce fpDenyText;
 
@@ -75,6 +126,7 @@ in
   # that NixOS adds by default, so a password can never slip in via this track.
   security.pam.services.kde-smartcard.unixAuth = lib.mkForce false;
 
+  # ── Kernel Session Keyring ─────────────────────────────────────────────────
   # NixOS never wires up pam_keyinit anywhere, so processes never join a
   # proper kernel session keyring — keyctl calls (e.g. proton-pass-cli's
   # keyutils-backed credential store) see a lazily-created keyring they
@@ -95,4 +147,9 @@ in
     args       = [ "force" "revoke" ];
     order      = config.security.pam.services.systemd-user.rules.session.env.order - 50;
   };
+
+  environment.systemPackages = with pkgs; [
+    fprintd          # fingerprint daemon + CLI (enroll/list/verify); see note above
+    yubikey-manager
+  ];
 }

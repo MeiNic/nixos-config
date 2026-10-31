@@ -1,100 +1,23 @@
-# User Account & Packages
+# User Account & Login Shell (apps: desktop/apps.nix, development/)
 { pkgs, ... }:
 
+let
+  inherit (import ./settings.nix) user;
+in
 {
-  users.users.nico = {
+  users.users.${user} = {
     isNormalUser = true;
-    description  = "nico";
+    description  = user;
     initialHashedPassword = "$6$dWIUHsKbON.yT1am$tQOmnIRxNZu6xEMRT2R5QdsCUG8Eo2kcRZVjyG.vdoKNjVz9wJFa3GCyWUPZFxswsQ0V9p1rV1as/4yalBMa8/";
     shell        = pkgs.fish;
     extraGroups  = [ "networkmanager" "wheel" "wireshark" "adbusers" "docker"];
-
-    packages = with pkgs; [
-      # ── Communication ───────────────────────────────────────────────────
-      thunderbird
-      birdtray           # Thunderbird tray icon with unread count
-      signal-desktop
-      zapzap
-
-      # ── Browsers ────────────────────────────────────────────────────────
-      brave
-      google-chrome
-
-      # ── Development ─────────────────────────────────────────────────────
-      gh
-      go
-      jdk21
-      nodejs
-      pnpm
-      python3
-      rustup
-      gcc
-      dart
-      flutter
-      php
-      android-studio
-      android-tools
-      tokei
-      cmake
-      ninja
-      pkg-config
-      gtk3
-      clang
-      claude-code
-      grpc-tools
-
-      # ── Security & Crypto ───────────────────────────────────────────────
-      keepassxc
-
-      # ── Productivity & Office ───────────────────────────────────────────
-      libreoffice-fresh
-      zotero
-      texliveFull        # LaTeX with full package collection
-      typst              # Modern markup-based typesetting system
-      drawio
-      anki               # Flashcard learning
-      gimp
-      vlc
-      handbrake
-      # Konsole, Kate, Okular, Gwenview, Ark, Spectacle and System Monitor come
-      # with Plasma 6 (services.desktopManager.plasma6) — not listed here.
-      kdePackages.kcalc            # calculator
-      kdePackages.filelight        # disk usage analyzer
-      kdePackages.kfind            # file search
-      joplin-desktop     # Note-App
-      joplin-cli
-
-      # ── Network & VPN ───────────────────────────────────────────────────
-      openconnect
-
-      # ── System & Utilities ──────────────────────────────────────────────
-      p7zip
-      hardinfo2
-      lm_sensors
-      dmidecode
-      rclone             # Mount/sync SharePoint, OneDrive-Business, OneDrive
-      hcloud             # Hetzner Cloud CLI - manages Storage Box settings/snapshots/sub-accounts
-
-      # ── CLI Utilities ───────────────────────────────────────────────────
-      ripgrep            # rg: fast grep replacement used by editors/scripts
-
-      # ── Languages ───────────────────────────────────────────────────────
-      zig                # Zig toolchain (compiler + build system)
-
-      # ── Misc ────────────────────────────────────────────────────────────
-      discord
-      ausweisapp
-      proton-pass
-      proton-pass-cli
-      spotify
-    ];
   };
 
   # Fish must be enabled system-wide so it is a valid login shell.
   programs.fish.enable = true;
 
-  # nico's login shell is fish (see users.users.nico.shell above), so the
-  # nixos-rebuild shortcut is a fish abbreviation.
+  # The login shell is fish (see users.users above), so the nixos-rebuild
+  # shortcut is a fish abbreviation.
   programs.fish.shellAbbrs = {
     nixos-rebuild = "sudo nixos-rebuild switch";
   };

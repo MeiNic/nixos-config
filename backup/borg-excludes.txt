@@ -49,7 +49,7 @@ sh:home/nico/.local/share/containers
 sh:home/nico/.var/app/*/cache
 sh:home/nico/.local/share/Trash
 
-# Wine prefixes (rebuildable via affinity.nix; their user folders are symlinks into ~)
+# Wine prefixes (rebuildable via desktop/affinity.nix; their user folders are symlinks into ~)
 sh:home/nico/.wine
 sh:home/nico/wine
 sh:home/nico/.affinity

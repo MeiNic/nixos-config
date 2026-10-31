@@ -22,7 +22,7 @@ in
 
   environment.systemPackages = [ pkgs.sops pkgs.age ];
 
-  sops.defaultSopsFile = ./secrets.yaml;
+  sops.defaultSopsFile = ../secrets.yaml;
   # age (X25519 + ChaCha20-Poly1305) - modern primitives, far smaller attack
   # surface than GPG. sops itself always uses AES256-GCM for the values
   # regardless of key backend; age is what protects the wrapping key.
@@ -34,6 +34,7 @@ in
     owner = "root";
     mode  = "0444";
   };
+  # backup/android.nix: archive password + SSH key of its Storage Box sub-account
   sops.secrets.android-backup-env = { };
   sops.secrets.hetzner-storagebox-key = { };
   # backup/borg.nix: Borg repo passphrase (offsite + USB repo) + SSH key of the

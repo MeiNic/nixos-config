@@ -1,9 +1,26 @@
-{ ... }:
+# =============================================================================
+# Networking: NetworkManager, firewall, mDNS, eduroam
+# =============================================================================
+{ pkgs, ... }:
 
 let
-  inherit (import ./secrets/eduroam.nix) identity domainSuffixMatch;
+  inherit (import ../secrets/eduroam.nix) identity domainSuffixMatch;
 in
 {
+  networking.hostName              = "nixos";
+  networking.networkmanager.enable  = true;
+  networking.networkmanager.plugins = [ pkgs.networkmanager-openconnect ];
+  networking.firewall.enable                    = true;
+  networking.firewall.logRefusedConnections     = true;
+
+  # ── Network Discovery (mDNS / .local) ─────────────────────────────────────
+  services.avahi = {
+    enable       = true;
+    nssmdns4     = true;   # lets getaddrinfo() resolve .local hostnames
+    openFirewall = true;
+  };
+
+  # ── eduroam (EAP-TLS with a client certificate, see README § eduroam) ─────
   # wpa_supplicant runs as its own user, so it must own the cert/key files
   # or it gets "Permission denied" loading the key and prompts for a passphrase.
   systemd.tmpfiles.rules = [

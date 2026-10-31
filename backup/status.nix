@@ -1,12 +1,10 @@
-# Backup: btrfs snapshots, Borg (offsite + USB drive) and `backup-status`. See README § Backup.
+# `backup-status`: one overview of btrbk snapshots and both Borg jobs. See README § Backup.
 { pkgs, lib, ... }:
 
 let
-  inherit (import ./settings.nix) snapshotMount usbDevice;
+  inherit (import ../settings.nix) snapshotMount usbDevice;
 in
 {
-  imports = [ ./snapshots.nix ./borg.nix ];
-
   environment.systemPackages = [
     (pkgs.writeShellScriptBin "backup-status" ''
       SNAP=${snapshotMount}

@@ -4,6 +4,8 @@
 { ... }:
 
 let
+  inherit (import ../settings.nix) snapshotMount;
+
   mkBtrfs = subvol: {
     device        = "/dev/mapper/shared";
     fsType        = "btrfs";
@@ -17,4 +19,14 @@ in
   fileSystems."/var/lib/docker"  = mkBtrfs "@docker";
   fileSystems."/var/lib/flatpak" = mkBtrfs "@flatpak";
   fileSystems."/etc/nixos"       = mkBtrfs "@configs";
+
+  # btrbk snapshot target (backup/snapshots.nix) - not needed for boot
+  fileSystems."${snapshotMount}" = {
+    device = "/dev/mapper/shared";
+    fsType = "btrfs";
+    options = [ "subvol=@snapshots" "compress=zstd" "noatime" ];
+  };
+
+  # NTFS userspace driver (also puts ntfs3g on PATH)
+  boot.supportedFilesystems = [ "ntfs" ];
 }

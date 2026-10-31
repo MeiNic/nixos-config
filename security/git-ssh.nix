@@ -1,7 +1,8 @@
+# Git, SSH client + server, GPG agent
 { pkgs, ... }:
 
 let
-  inherit (import ./secrets/personal.nix) gitEmail gitName gitSigningPubKey;
+  inherit (import ../secrets/personal.nix) gitEmail gitName gitSigningPubKey;
 in
 {
   # ── Git ────────────────────────────────────────────────────────────────────

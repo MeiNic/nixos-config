@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# SNAP and USB_DEVICE are set by default.nix.
+# SNAP and USB_DEVICE are set by status.nix.
 
 bold()  { printf "\e[1m%s\e[0m\n" "$*"; }
 green() { printf "\e[32m%s\e[0m\n" "$*"; }
