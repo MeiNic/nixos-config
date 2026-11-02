@@ -88,7 +88,7 @@ in
 
   systemd.services = lib.mapAttrs (name: job: {
     inherit (job) description;
-    path = with pkgs; [ borgbackup systemd util-linux libnotify ] ++ job.packages;
+    path = with pkgs; [ borgbackup systemd util-linux libnotify jq ] ++ job.packages;
     # A rebuild must never kill a running backup.
     restartIfChanged = false;
     stopIfChanged    = false;

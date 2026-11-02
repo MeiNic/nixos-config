@@ -39,6 +39,12 @@ borg_job() {
   bold "● $2"
   if [ -e "$st/last-success" ]; then echo "  Last success: $(stamp "$st/last-success")"
   else red "  No successful backup yet"; fi
+  if [ -e "$st/last-run" ]; then
+    read -r secs orig new repo_size < "$st/last-run"
+    printf "  Last run: took %dh %02dm | archive %s (%s new data) | repository %s on disk\n" \
+      $((secs / 3600)) $((secs % 3600 / 60)) \
+      "$(numfmt --to=iec "$orig")" "$(numfmt --to=iec "$new")" "$(numfmt --to=iec "$repo_size")"
+  fi
   if [ "$(systemctl show "$unit" -p ActiveState --value)" = activating ]; then
     since=$(systemctl show "$unit" -p ExecMainStartTimestamp --value)
     green "  Running now: $(cat "$st/pending" 2>/dev/null || echo "repository check") (since $since)"

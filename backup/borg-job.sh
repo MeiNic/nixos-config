@@ -19,6 +19,16 @@ gate() { systemd-analyze condition 'ConditionACPower=true' >/dev/null 2>&1 && co
 declare -F prepare >/dev/null || prepare() { :; }
 declare -F release >/dev/null || release() { :; }
 
+# Working time of the current backup, summed over all runs (pauses and failed
+# attempts excluded) - banked on every exit, reported by backup-status.
+working=0
+began=0
+bank() {
+  local now; now=$(date +%s)
+  echo $(( $(cat "$state/active-secs" 2>/dev/null || echo 0) + now - began )) > "$state/active-secs"
+  began=$now
+}
+
 notify() {
   local uid
   uid=$(id -u "$user") || return 0
@@ -31,6 +41,7 @@ notify() {
 on_exit() {
   local rc=$?
   trap - EXIT
+  [ "$working" -eq 1 ] && bank
   release
   if [ "$rc" -ne 0 ] && [ "$rc" -ne 143 ]; then
     touch "$state/last-failure"
@@ -52,6 +63,8 @@ if [ ! -e "$state/pending" ] && [ -e "$state/last-success" ] \
    && [ "$(age "$state/last-success")" -lt 86400 ]; then exit 0; fi
 if [ -e "$state/last-failure" ] && [ "$(age "$state/last-failure")" -lt 3600 ]; then exit 0; fi
 gate || exit 0
+began=$(date +%s)
+working=1
 prepare
 
 # Runs a borg command and stops it (SIGTERM) when the conditions stop holding.
@@ -129,6 +142,18 @@ guarded borg compact "$repo"
 rc=$?
 [ "$paused" -eq 1 ] && stop_paused
 [ "$rc" -le 1 ] || fail "borg compact failed (exit code $rc)"
+
+# Stats for backup-status: "seconds archive-size archive-new-data repo-size" (bytes).
+# Best effort - a failure here must not fail the backup.
+bank
+working=0
+rm -f "$state/last-run"
+if stats=$(borg info --json "$repo::$name" 2>/dev/null \
+    | jq -r '[.archives[0].stats.original_size, .archives[0].stats.deduplicated_size,
+              .cache.stats.unique_csize] | @tsv') && [ -n "$stats" ]; then
+  echo "$(cat "$state/active-secs") $stats" > "$state/last-run"
+fi
+rm -f "$state/active-secs"
 
 rm -f "$state/pending" "$state/created" "$state/last-failure"
 touch "$state/last-success"
