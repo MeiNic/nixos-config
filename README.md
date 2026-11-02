@@ -4,110 +4,11 @@ Personal NixOS system configuration for a Framework 13 laptop with an Intel Core
 
 ---
 
-## Frequently Used Commands
+## Commands
 
-### Configuration Management
+Every command lives in [COMMANDS.md](COMMANDS.md): the day-to-day ones first (rebuilds, updates, backups, diagnostics), then the one-time procedures for each topic below. This README explains what they do and why.
 
-```bash
-cd /etc/nixos                  # also reachable as ~/nixos-config (symlink)
-
-sudo nixos-rebuild build       # Evaluate + build only — validate a change
-sudo nixos-rebuild test        # Activate without making it the default boot entry
-sudo nixos-rebuild switch      # Activate and make it the boot default (fish abbreviation: nixos-rebuild)
-sudo nixos-rebuild boot        # Make it the boot default without activating now (kernel/initrd/microcode changes)
-
-# Git operations (no sudo needed)
-git add <files> && git commit -m "..."
-git push
-```
-
-### System Updates & Maintenance
-
-```bash
-# Update all channels (nixos + nixos-unstable) and rebuild in one step
-sudo nixos-rebuild switch --upgrade-all
-
-# Clean up old generations and free disk space
-# (also runs automatically: weekly, deleting generations older than 14 days)
-sudo nix-collect-garbage -d
-
-# List generations / roll back
-sudo nixos-rebuild list-generations
-sudo nixos-rebuild switch --rollback   # Switch to the previous generation now (and make it the default)
-# …or pick an older generation in the systemd-boot menu at boot
-
-# Versions & health
-nixos-version
-nix --version
-systemctl --failed
-```
-
-### Pinned Versions
-
-Updating the channels also moves claude-code (CLI + VS Code extension), joplin-desktop and zotero, which come from the `nixos-unstable` channel via the overlay in `system/nix.nix`. The two remaining hash pins are bumped by hand:
-
-```bash
-# sops-nix (security/secrets.nix): take master's head, then put the rev + hash into the url/sha256
-git ls-remote https://github.com/Mic92/sops-nix refs/heads/master
-nix-prefetch-url --unpack https://github.com/Mic92/sops-nix/archive/<rev>.tar.gz
-
-# open-android-backup (backup/android.nix): only on a new upstream release tag.
-# Update rev + version, set hash = "" and rebuild to get the real hash from the error;
-# the build fails if backup/open-android-backup-nixos-unattended-fixes.patch no longer applies.
-sudo systemctl start android-backup-auto   # test with the phone connected
-```
-
-### Backup & Snapshot Management
-
-```bash
-backup-status                      # Overview: timers, btrbk snapshots, offsite + USB Borg state
-
-# btrbk snapshots (hourly)
-ls /.snapshots
-systemctl list-timers btrbk.timer
-sudo journalctl -u btrbk -n 50
-
-# Android → Hetzner Storage Box (auto-fires on USB connect; run manually for contacts)
-sudo systemctl start android-backup-manual
-sudo journalctl -fu android-backup-auto
-```
-
-### System Information & Diagnostics
-
-```bash
-# Hardware
-hardinfo2                          # Detailed hardware information
-fastfetch                          # System summary
-lsblk                              # Disk/partition layout
-duf                                # Disk usage per mount
-sensors                            # CPU/thermal sensors
-btop                               # Processes, CPU, memory, disk, network
-sudo dmidecode -t bios             # BIOS/UEFI info
-nix-shell -p smartmontools --run 'sudo smartctl -a /dev/nvme0n1'   # NVMe health
-
-# Audio (PipeWire)
-wpctl status                       # Sinks, sources, streams
-journalctl --user -u pipewire -n 50
-
-# Battery
-cat /sys/class/power_supply/BAT1/status
-cat /sys/class/power_supply/BAT1/capacity
-```
-
-### Security & Authentication
-
-```bash
-# Account lockout (lock screen)
-faillock --user nico               # Check lock status
-faillock --user nico --reset       # Unlock
-
-# YubiKey
-ykman list                         # Is the key detected?
-systemctl status pcscd             # Smart-card daemon
-
-# Fingerprint reader
-fprintd-verify                     # Interactive fingerprint test
-```
+Updating the channels also moves claude-code (CLI + VS Code extension), joplin-desktop and zotero, which come from the `nixos-unstable` channel via the overlay in `system/nix.nix`. The two remaining hash pins (sops-nix, open-android-backup) are bumped by hand: [COMMANDS.md § Pinned versions](COMMANDS.md#pinned-versions).
 
 ---
 
@@ -264,12 +165,7 @@ User overrides via KDE Plasma's file manager context menu are written to `~/.con
 | Text / Code | VS Code (`VISUAL`); `EDITOR` is vim |
 | File manager | Dolphin (Plasma's default) |
 
-To change a default, edit the relevant entry in `desktop/default-apps.nix` and run `sudo nixos-rebuild switch`. To find the correct `.desktop` ID:
-```bash
-find /run/current-system/sw/share/applications /etc/profiles/per-user/$USER/share/applications ~/.local/share/applications -name '*.desktop' | sort
-# Check what's currently registered for a type:
-xdg-mime query default application/pdf
-```
+To change a default, edit the relevant entry in `desktop/default-apps.nix` and run `sudo nixos-rebuild switch`. To find the correct `.desktop` ID: [COMMANDS.md § Default applications](COMMANDS.md#default-applications).
 
 ---
 
@@ -298,49 +194,6 @@ Installed for `nico` from `desktop/apps.nix`, and from `development/tools.nix` /
 VS Code (with its full declarative extension set) lives in `development/vscode.nix`, the Android SDK/emulator environment in `development/android.nix`.
 
 Additional system-level features: Docker (`development/tools.nix`), Flatpak (`desktop/apps.nix`), `nix-ld` for prebuilt binaries such as the Android SDK tools (`system/nix.nix`).
-
-### Signal Desktop — Taskbar Badge Count
-
-Signal's unread-message badge doesn't show on the KDE Plasma taskbar icon out of the box. Electron implements Linux badge counts by `dlopen()`-ing `libunity.so.9` at runtime to emit a `com.canonical.Unity.LauncherEntry` D-Bus signal, which is what Plasma's Task Manager listens for — but nixpkgs' `signal-desktop`/Electron wrapper never puts `libunity` on `LD_LIBRARY_PATH`, so the `dlopen` silently fails and Signal never emits anything. Confirmed with:
-
-```bash
-dbus-monitor --session "interface='com.canonical.Unity.LauncherEntry'"
-```
-
-— no signal fired at all even while a real message arrived, until the fix below was applied (after which an `Update` signal appears with `count` / `count-visible` set, `app_uri` = `application://signal.desktop`, matching the installed `.desktop` file's id).
-
-**Fix:** a per-user XDG desktop-file override at `~/.local/share/applications/signal.desktop` (XDG user overrides always take priority over the system one with the same filename), launching Signal with `LD_LIBRARY_PATH` pointing at `pkgs.libunity`'s `lib` directory. Full file content (only `Exec=` differs from nixpkgs' stock `signal.desktop`):
-
-```ini
-[Desktop Entry]
-Categories=Network;InstantMessaging;Chat
-Comment=Private messaging from your desktop
-Exec=env LD_LIBRARY_PATH=<libunity-store-path>/lib signal-desktop %U
-Icon=signal-desktop
-MimeType=x-scheme-handler/sgnl;x-scheme-handler/signalcaptcha
-Name=Signal
-StartupWMClass=signal
-Terminal=false
-Type=Application
-Version=1.5
-```
-
-Find the current `<libunity-store-path>` with:
-
-```bash
-nix-instantiate --eval -E '(import <nixpkgs> {}).libunity.outPath'
-```
-
-After creating/editing the file, refresh the caches so Plasma picks it up without a reboot, then fully quit (tray icon → Quit, not just close the window) and relaunch Signal from the app launcher:
-
-```bash
-update-desktop-database ~/.local/share/applications
-kbuildsycoca6 --noincremental
-```
-
-This is deliberately *not* wired up declaratively (no nixpkgs overlay, no rebuild needed) — it's a one-off manual fix, applied outside git. Caveat: `libunity` isn't in any package list, so nothing pins it as a Nix GC root; if it vanishes after a `nix-collect-garbage`, re-run the `nix-instantiate` command above for its new store path and update the `Exec=` line.
-
----
 
 ## Development Tooling (`development/`)
 
@@ -382,12 +235,7 @@ In `~/` (migration from Windows):
 - `my_public_key.asc` + `my_secret_key.asc` — GPG key for Thunderbird OpenPGP
 - `revoke.asc` — GPG revocation certificate
 
-The GPG key has capabilities `[SC]` (primary) + `[E]` (subkey). The `[E]` subkey is used by Thunderbird for email encryption — Git commit signing uses SSH instead. Import for Thunderbird once:
-
-```bash
-iconv -f UTF-16LE -t UTF-8 ~/my_public_key.asc | tail -c +4 | tr -d '\r' | gpg --import
-iconv -f UTF-16LE -t UTF-8 ~/my_secret_key.asc | tail -c +4 | tr -d '\r' | gpg --import
-```
+The GPG key has capabilities `[SC]` (primary) + `[E]` (subkey). The `[E]` subkey is used by Thunderbird for email encryption — Git commit signing uses SSH instead. Import it for Thunderbird once: [COMMANDS.md § GPG key import](COMMANDS.md#gpg-key-import).
 
 ---
 
@@ -433,22 +281,7 @@ The exact list is `backup/borg-excludes.txt`. Wine/Affinity prefixes and the `~/
 
 #### One-time setup — offsite
 
-```bash
-# 1. Generate a dedicated key (private key never leaves a scratch dir)
-ssh-keygen -t ed25519 -N '' -C nixos-offsite-backup -f /tmp/offsite_backup_key
-
-# 2. Install the public key on the sub-account (prompts for its password once),
-#    after pinning the host key - see the checks in the setup script
-cat /tmp/offsite_backup_key.pub | ssh -p23 <sub-account>@<sub-account>.your-storagebox.de install-ssh-key
-
-# 3. Store key + a generated passphrase in secrets.yaml (see § Secrets for the sudo env wrapper):
-#    '["offsite-backup-ssh-key"]' and '["offsite-backup-passphrase"]'
-# 4. Save the passphrase in a password manager - with a lost laptop it is the only thing
-#    you need besides the sub-account password (the age key and secrets are IN the backup)
-sudo env SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt sops -d --extract '["offsite-backup-passphrase"]' /etc/nixos/secrets.yaml
-
-# 5. sudo nixos-rebuild switch - the first run starts at the next tick once on AC + ethernet
-```
+Five steps — a dedicated SSH key, installed on the sub-account, key + passphrase in `secrets.yaml`, the passphrase saved in a password manager, rebuild: [COMMANDS.md § Borg offsite setup](COMMANDS.md#borg-offsite-setup).
 
 #### One-time setup — USB drive
 
@@ -456,45 +289,11 @@ Nothing to do besides plugging it in: the repo is created on the first run. One 
 
 #### Key export (both repos)
 
-Both repos are initialised automatically on their first run. Afterwards, export each repo key once and store it next to the passphrase. In `repokey` mode the key lives inside the repo; the export (itself passphrase-protected) is the fallback if that part of the repo is ever damaged:
-
-```bash
-# Storage Box
-sudo bash -c 'export BORG_REMOTE_PATH=borg-1.4 BORG_RSH="ssh -i /run/secrets/offsite-backup-ssh-key -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/nixos/secrets/hetzner-storagebox-known_hosts"; borg key export --paper ssh://<sub-account>@<sub-account>.your-storagebox.de:23/./borg-repo'
-
-# USB drive (connected)
-sudo mount /dev/disk/by-uuid/246f76d5-4bfd-48d6-8ada-e8c131709ba6 /mnt/backup-hdd
-sudo borg key export --paper /mnt/backup-hdd/borg-repo
-sudo umount /mnt/backup-hdd
-```
+Both repos are initialised automatically on their first run. Afterwards, export each repo key once and store it next to the passphrase. In `repokey` mode the key lives inside the repo; the export (itself passphrase-protected) is the fallback if that part of the repo is ever damaged: [COMMANDS.md § Borg key export](COMMANDS.md#borg-key-export).
 
 #### Daily use
 
-```bash
-backup-status                                 # per job: last success, running/unfinished run, last check; power/ethernet/drive state
-sudo systemctl start offsite-backup           # run now (still needs its conditions and >24 h since last success)
-sudo systemctl start usb-backup               #   same for the USB drive
-sudo rm /var/lib/offsite-backup/last-success  # force the next start to run a fresh backup (same for usb-backup)
-journalctl -fu offsite-backup                 # or usb-backup
-
-# Browse / restore from the Storage Box (root shell so the sops secrets are readable)
-sudo -i
-export BORG_REMOTE_PATH=borg-1.4 BORG_PASSCOMMAND='cat /run/secrets/offsite-backup-passphrase'
-export BORG_RSH='ssh -i /run/secrets/offsite-backup-ssh-key -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/nixos/secrets/hetzner-storagebox-known_hosts'
-REPO=ssh://<sub-account>@<sub-account>.your-storagebox.de:23/./borg-repo
-borg list $REPO
-borg extract $REPO::<archive> home/nico/Documents/some/file     # paths have no leading slash
-borg mount $REPO::<archive> /mnt                                # needs fuse; umount when done
-
-# Browse / restore from the USB drive - mount it at the job's own mount point;
-# a running usb-backup then uses that mount and leaves it alone
-sudo -i
-mount /dev/disk/by-uuid/246f76d5-4bfd-48d6-8ada-e8c131709ba6 /mnt/backup-hdd
-export BORG_PASSCOMMAND='cat /run/secrets/offsite-backup-passphrase'
-borg list /mnt/backup-hdd/borg-repo
-borg extract /mnt/backup-hdd/borg-repo::<archive> home/nico/Documents/some/file
-umount /mnt/backup-hdd
-```
+Status, manual runs, forcing a fresh backup, and browsing/restoring from either repo: [COMMANDS.md § Borg daily use](COMMANDS.md#borg-daily-use).
 
 #### Disaster recovery (laptop lost)
 
@@ -538,33 +337,7 @@ Matches the standard Android ADB USB interface (class `ff` / subclass `42` / pro
 
 The Robot panel didn't offer an "add SSH key" option for this sub-account. Hetzner's docs (docs.hetzner.com/de/storage/storage-box/backup-space-ssh-keys) cover exactly this: Storage Boxes accept key installation over SSH itself via a built-in `install-ssh-key` command on port 23, and it explicitly works for sub-accounts too — no Robot UI needed.
 
-The sub-account's name goes into `androidStorageBoxUser` in the gitignored `secrets/personal.nix` (the repo is public); `<android-sub-account>` below stands for it.
-
-```bash
-# 1. Generate a dedicated SSH keypair
-ssh-keygen -t ed25519 -f /tmp/hetzner-storagebox -C "android-backup@nixos"
-
-# 2. Install the public key on the sub-account via Hetzner's built-in command
-#    (prompts for the sub-account's password once)
-cat /tmp/hetzner-storagebox.pub | ssh -p23 <android-sub-account>@<android-sub-account>.your-storagebox.de install-ssh-key
-
-# 3. Put the private key into secrets.yaml (see § Secrets for why the sudo
-#    env wrapper is needed) and drop the local copies
-cd /etc/nixos
-sudo env SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt sops set secrets.yaml \
-  '["hetzner-storagebox-key"]' "$(cat /tmp/hetzner-storagebox | nix-shell -p jq --run 'jq -Rs .')"
-rm /tmp/hetzner-storagebox /tmp/hetzner-storagebox.pub
-
-# 4. Pin the SFTP host key (verify the fingerprint against Robot's panel!)
-#    Not a secret - stays a plain file, unlike the key above.
-ssh-keyscan -p 23 <android-sub-account>.your-storagebox.de | sudo tee /etc/nixos/secrets/hetzner-storagebox-known_hosts
-sudo chown root:root /etc/nixos/secrets/hetzner-storagebox-known_hosts
-sudo chmod 600 /etc/nixos/secrets/hetzner-storagebox-known_hosts
-
-# 5. Set the archive password
-sudo env SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt sops set secrets.yaml \
-  '["android-backup-env"]' "$(printf 'archive_password=%s' 'your-strong-passphrase' | nix-shell -p jq --run 'jq -Rs .')"
-```
+The sub-account's name goes into `androidStorageBoxUser` in the gitignored `secrets/personal.nix` (the repo is public); `<android-sub-account>` in the commands stands for it. Five steps — a dedicated SSH key pair, installed on the sub-account, the private key into `secrets.yaml`, the pinned host key (verify the fingerprint against Robot's panel!), the archive password: [COMMANDS.md § Android backup setup](COMMANDS.md#android-backup-setup).
 
 ### One-time phone setup
 
@@ -573,21 +346,7 @@ sudo env SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt sops set secrets.yaml \
 
 ### Useful commands
 
-```bash
-# Trigger the full backup (incl. contacts) manually
-sudo systemctl start android-backup-manual
-
-# Watch it run
-sudo journalctl -fu android-backup-auto
-sudo journalctl -fu android-backup-manual
-
-# List what's currently on the Storage Box
-sudo rclone lsf ":sftp:android-backup" --sftp-host <android-sub-account>.your-storagebox.de \
-  --sftp-port 23 --sftp-user <android-sub-account> \
-  --sftp-key-file /run/secrets/hetzner-storagebox-key \
-  --sftp-known-hosts-file /etc/nixos/secrets/hetzner-storagebox-known_hosts \
-  --sftp-shell-type unix
-```
+Trigger the full backup, watch it run, list what's on the Storage Box: [COMMANDS.md § Android backup](COMMANDS.md#android-backup).
 
 ### Failure visibility
 
@@ -615,20 +374,11 @@ At system activation, `sops-install-secrets` decrypts `secrets.yaml` into `/run/
 | `offsite-backup-passphrase` | `backup/borg.nix` (`BORG_PASSCOMMAND`, both repos) | root:root 0400 (default) |
 | `offsite-backup-ssh-key` | `backup/borg.nix` (`BORG_RSH`, Storage Box repo) | root:root 0400 (default) |
 
-**Editing a secret:**
-
-```bash
-# Interactive (decrypts to $EDITOR, re-encrypts on save) - simplest for one-off edits
-sudo env SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt sops secrets.yaml
-
-# Scripted / from a file, preserving exact byte content (multi-line keys etc.)
-sudo env SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt sops set secrets.yaml \
-  '["secret-name"]' "$(sudo cat /path/to/file | nix-shell -p jq --run 'jq -Rs .')"
-```
+**Editing a secret** (interactively, or scripted from a file): [COMMANDS.md § Secrets](COMMANDS.md#secrets).
 
 The `sudo env SOPS_AGE_KEY_FILE=...` is required every time: the plain `sops` CLI's own key lookup (`~/.config/sops/age/keys.txt` by default) is independent of the `sops.age.keyFile` NixOS option, which only governs decryption during system activation — not interactive CLI use. And note `/run/wrappers/bin/sudo` is the actual setuid binary if bare `sudo` ever resolves to the unwrapped one from a script's PATH.
 
-To add a brand new secret: add its key via `sops set` above, then declare it in `security/secrets.nix` (`sops.secrets.<name> = { };`, override `owner`/`mode` only if the default root:root 0400 doesn't suit the consumer), then reference `config.sops.secrets.<name>.path` from the consuming module.
+To add a brand new secret: add its key via `sops set`, then declare it in `security/secrets.nix` (`sops.secrets.<name> = { };`, override `owner`/`mode` only if the default root:root 0400 doesn't suit the consumer), then reference `config.sops.secrets.<name>.path` from the consuming module.
 
 ### Values needed at eval time, or not actually secret → plain files (`secrets/`)
 
@@ -679,49 +429,23 @@ NixOS doesn't add `pam_keyinit` anywhere by default, so sessions never got a pro
 
 ### Account lockout & recovery
 
-`pam_faillock` on the lock screen: **2 failures** (bad password *or* bad swipe, either order) → locked, `unlock_time=0` (no auto-expiry).
-
-```bash
-faillock --user nico            # check lock status
-faillock --user nico --reset    # unlock (sudo still works via YubiKey)
-```
+`pam_faillock` on the lock screen: **2 failures** (bad password *or* bad swipe, either order) → locked, `unlock_time=0` (no auto-expiry). Check and reset it with `faillock`: [COMMANDS.md § Security and authentication](COMMANDS.md#security-and-authentication).
 
 While locked, the rescue paths are the **YubiKey PIV** (on the lock screen itself) or a **TTY password login** (`Ctrl+Alt+F2`).
 
 ### YubiKey PIV enrollment (lock-screen smartcard method)
 
-Each key holds its own PIV key + self-signed cert in slot `9a`; `pam_p11` authorizes any cert listed in `~/.eid/authorized_certificates`. Provision **each** key (plug in only one at a time):
-
-```bash
-ykman piv access change-management-key --generate --protect  # replace factory default
-ykman piv access change-pin        # default 123456 → yours (6–8 digits)
-ykman piv access change-puk        # default 12345678 → yours
-ykman piv keys generate --algorithm eccp384 9a ~/piv-pub.pem
-ykman piv certificates generate --subject "CN=nico-piv-<name>" 9a ~/piv-pub.pem
-mkdir -p ~/.eid && chmod 700 ~/.eid
-ykman piv certificates export 9a - >> ~/.eid/authorized_certificates   # APPEND — one block per key
-chmod 600 ~/.eid/authorized_certificates && rm ~/piv-pub.pem
-```
+Each key holds its own PIV key + self-signed cert in slot `9a`; `pam_p11` authorizes any cert listed in `~/.eid/authorized_certificates`. Provision **each** key (plug in only one at a time): [COMMANDS.md § YubiKey PIV enrollment](COMMANDS.md#yubikey-piv-enrollment).
 
 Verify: `ykman piv info` shows a cert in slot 9a, and `~/.eid/authorized_certificates` holds one `BEGIN CERTIFICATE` block per key.
 
 ### YubiKey U2F enrollment (sudo / TTY)
 
-The mapping file is the `u2f-mappings` entry in `secrets.yaml` (see § Secrets — one line per key, sops-encrypted). To add a key, generate its line and paste it in via the interactive editor:
-
-```bash
-pamu2fcfg -n   # -n if u2f-mappings already has a key in it, otherwise omit
-sudo env SOPS_AGE_KEY_FILE=/var/lib/sops-nix/key.txt sops secrets.yaml   # append the line above under u2f-mappings, save
-```
+The mapping file is the `u2f-mappings` entry in `secrets.yaml` (see § Secrets — one line per key, sops-encrypted). To add a key, generate its line and paste it in via the interactive editor: [COMMANDS.md § YubiKey U2F enrollment](COMMANDS.md#yubikey-u2f-enrollment).
 
 ### Emergency access
 
-`login` (TTY, `Ctrl+Alt+F2`) accepts your password, so you can always drop to a console and unlock:
-
-```bash
-# Ctrl+Alt+F2 → login: nico → password
-faillock --user nico --reset
-```
+`login` (TTY, `Ctrl+Alt+F2`) accepts your password, so you can always drop to a console, log in as `nico` and reset the lockout ([COMMANDS.md § Security and authentication](COMMANDS.md#security-and-authentication)).
 
 Or select the **previous NixOS generation** at the systemd-boot menu during boot; the old auth config still works.
 
@@ -737,40 +461,20 @@ Connects to eduroam using a client certificate (EAP-TLS) instead of a username a
 - DFN/easyroam: [easyroam.eduroam.de](https://easyroam.eduroam.de)
 - Other institutions: look for the eduroam CAT or geteduroam portal
 
-**2. Extract cert and key** into `certs/` (gitignored):
+The commands for steps 2–4 are in [COMMANDS.md § eduroam setup](COMMANDS.md#eduroam-setup).
 
-```bash
-mkdir -p /etc/nixos/certs
-
-# Public client certificate
-openssl pkcs12 -legacy -in YOUR.p12 -clcerts -nokeys -passin pass: \
-  | openssl x509 -out /etc/nixos/certs/eduroam-client.pem
-
-# Unencrypted private key (mode 400, owned by wpa_supplicant via tmpfiles)
-openssl pkcs12 -legacy -in YOUR.p12 -nocerts -nodes -passin pass: \
-  | openssl pkey -out /etc/nixos/certs/eduroam-key.pem
-```
+**2. Extract cert and key** into `certs/` (gitignored): the public client certificate, and the private key unencrypted (mode 400, owned by wpa_supplicant via tmpfiles).
 
 > `-legacy` is required for older RC2-encrypted `.p12` files (easyroam uses this format). Put your `.p12` password after `pass:`, or leave it empty if there is none.
 
-**3. Fill in your secrets:**
+**3. Fill in your secrets:** copy `secrets/eduroam.nix.template` to `secrets/eduroam.nix`, then set:
 
-```bash
-cp secrets/eduroam.nix.template secrets/eduroam.nix
-```
-
-Then edit `secrets/eduroam.nix`:
-
-| Value | How to find it |
+| Value | What it is |
 |---|---|
-| `identity` | CN from your cert: `openssl x509 -in certs/eduroam-client.pem -noout -subject` |
-| `domainSuffixMatch` | Server name(s) your supplicant sees: `journalctl -u wpa_supplicant \| grep 'PEER-CERT depth=0'` — use the parent domain(s). DFN/easyroam users typically need `your-uni.de;eduroam.de`. |
+| `identity` | The CN from your cert |
+| `domainSuffixMatch` | Server name(s) your supplicant sees (in the `wpa_supplicant` journal) — use the parent domain(s). DFN/easyroam users typically need `your-uni.de;eduroam.de`. |
 
-**4. Rebuild:**
-
-```bash
-sudo nixos-rebuild switch
-```
+**4. Rebuild.**
 
 eduroam will connect automatically whenever it is in range.
 
@@ -786,35 +490,8 @@ Runs **Affinity by Canva** (free, 3.x) and **Affinity v2** via Wine (requires Wi
 
 ### Setup (one time)
 
-```bash
-# 1. Create and configure the wine prefix
-affinity-setup                 # Takes 10-20 min (downloads .NET 4.8)
-
-# 2. Download the installer into ~/wine/affinity (keeps it out of ~/Downloads)
-# Affinity by Canva: https://www.affinity.studio/download
-# Affinity v2: https://affinity.serif.com/v2/
-mkdir -p ~/wine/affinity
-WINEPREFIX=$HOME/.affinity wine ~/wine/affinity/'Affinity x64.exe'
-
-# 3. For Affinity by Canva only — apply the WineFix (patches sign-in + prefs saving)
-affinity-winefix
-
-# 4. Install DXVK — Wine's built-in D3D has no working D3D12 path, which shows up
-#    as blank white/black context menus and popups. DXVK routes D3D through Vulkan
-#    (works with the Intel Arc/Meteor Lake iGPU) and fixes it.
-WINEPREFIX=$HOME/.affinity winetricks --unattended dxvk renderer=vulkan
-
-# 5. Launch
-affinity                       # Launches Affinity by Canva
-affinity Photo                 # Launches Affinity v2 Photo (or Designer/Publisher)
-```
+Five steps — create the wine prefix, run the installer, apply the WineFix (Affinity by Canva only), install DXVK, launch: [COMMANDS.md § Affinity setup](COMMANDS.md#affinity-setup).
 
 ### Display Scaling
 
-Wine doesn't detect per-monitor KDE scaling on X11/Wayland. Set it manually:
-
-```bash
-affinity-scale 135             # 135% scale → 130 DPI
-affinity-scale 150             # 150% scale → 144 DPI
-affinity-scale 170             # 170% scale → 163 DPI
-```
+Wine doesn't detect per-monitor KDE scaling on X11/Wayland. Set it manually with `affinity-scale <percent>`: [COMMANDS.md § Affinity display scaling](COMMANDS.md#affinity-display-scaling).
